@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+source "$(dirname $0)/../common/functions"
+
+reload_nginx () {
+  case "$DOKKU_DISTRO" in
+    ubuntu)
+      sudo /etc/init.d/nginx reload > /dev/null
+      ;;
+
+    opensuse)
+      sudo /sbin/service nginx reload > /dev/null
+      ;;
+  esac
+}
+
+if [[ $1 == http-auth || $1 == http-auth:* ]]; then
+  [[ -z $2 ]] && echo "Please specify an app to run the command on" && exit 1
+  verify_app_name "$2"
+  APP="$2"
+  APP_ROOT="$DOKKU_ROOT/$APP"
+fi
+
+case "$1" in
+  http-auth:on)
+    [[ -z $3 || -z $4 ]] && echo "Please provide a username and a password" && exit 1
+    AUTH_USERNAME="$3"
+    AUTH_PASSWORD="$4"
+    dokku_log_info1 "Enabling HTTP auth for $APP..."
+    if [[ ! -d "$APP_ROOT/nginx.conf.d" ]]; then
+      mkdir "$APP_ROOT/nginx.conf.d"
+    fi
+    cp "$(dirname $0)/templates/http-auth.conf" "$APP_ROOT/nginx.conf.d"
+    sed -i "s,{APP_ROOT},$APP_ROOT," "$APP_ROOT/nginx.conf.d/http-auth.conf"
+    HASHED_PASSWORD=$(mkpasswd -m sha-512 "$AUTH_PASSWORD")
+    echo "$AUTH_USERNAME:$HASHED_PASSWORD" > "$APP_ROOT/htpasswd"
+    reload_nginx
+    dokku_log_verbose "done"
+    ;;
+
+  http-auth:off)
+    dokku_log_info1 "Disabling HTTP auth for $APP..."
+    if [[ -f "$APP_ROOT/nginx.conf.d/http-auth.conf" ]]; then
+      rm "$APP_ROOT/nginx.conf.d/http-auth.conf"
+    fi
+    reload_nginx
+    dokku_log_verbose "done"
+    ;;
+
+  http-auth)
+    dokku_log_info1 "HTTP auth status of $APP: "
+    AUTH_STATUS="off"
+    if [[ -f "$APP_ROOT/nginx.conf.d/http-auth.conf" ]]; then
+      AUTH_STATUS="on"
+    fi
+    dokku_log_verbose "$AUTH_STATUS"
+    ;;
+
+  help)
+    cat && cat<<EOF
+    http-auth <app>                                 Display the current HTTP auth status of app
+    http-auth:on <app> <user> <password>            Enable HTTP auth for app
+    http-auth:off <app>                             Disable HTTP auth for app
+EOF
+    ;;
+
+  *)
+    exit $DOKKU_NOT_IMPLEMENTED_EXIT
+    ;;
+
+esac
