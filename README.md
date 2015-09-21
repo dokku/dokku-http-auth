@@ -9,8 +9,12 @@ dokku-http-auth is a plugin for [dokku][dokku] that gives the ability to enable 
 ## Installation
 
 ```sh
+# dokku 0.3.26
 $ sudo git clone https://github.com/Flink/dokku-http-auth.git /var/lib/dokku/plugins/http-auth
 $ dokku plugins-install
+
+# dokku 0.4+
+$ dokku plugin:install https://github.com/Flink/dokku-http-auth.git
 ```
 
 ## Commands

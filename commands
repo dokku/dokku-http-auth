@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
-source "$PLUGIN_PATH/common/functions"
+
+PLUGIN_BASE_PATH="$PLUGIN_PATH"
+if [[ -n $DOKKU_API_VERSION ]]; then
+  PLUGIN_BASE_PATH="$PLUGIN_ENABLED_PATH"
+fi
+source "$PLUGIN_BASE_PATH/common/functions"
 
 reload_nginx () {
   case "$DOKKU_DISTRO" in
@@ -57,11 +62,17 @@ case "$1" in
     ;;
 
   help)
-    cat && cat<<EOF
+    HELP=$(cat<<EOF
     http-auth <app>, Display the current HTTP auth status of app
     http-auth:on <app> <user> <password>, Enable HTTP auth for app
     http-auth:off <app>, Disable HTTP auth for app
 EOF
+)
+    if [[ -n $DOKKU_API_VERSION ]]; then
+      echo "$HELP"
+    else
+      cat && echo "$HELP"
+    fi
     ;;
 
   *)
