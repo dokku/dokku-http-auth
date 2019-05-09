@@ -38,7 +38,7 @@ case "$1" in
     cp "$(dirname "$0")/templates/http-auth.conf" "$APP_ROOT/nginx.conf.d"
     sed -i "s,{APP_ROOT},$APP_ROOT," "$APP_ROOT/nginx.conf.d/http-auth.conf"
     HASHED_PASSWORD=$(mkpasswd -m sha-512 "$AUTH_PASSWORD")
-    echo "$AUTH_USERNAME:$HASHED_PASSWORD" > "$APP_ROOT/htpasswd"
+    echo "$AUTH_USERNAME:$HASHED_PASSWORD" >> "$APP_ROOT/htpasswd"
     reload_nginx
     dokku_log_verbose "done"
     ;;
