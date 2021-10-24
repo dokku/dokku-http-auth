@@ -136,6 +136,7 @@ cmd-http-auth-add-user() {
 
   dokku_log_info1 "Adding $AUTH_USERNAME to basic auth list"
   fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
+  plugn trigger proxy-build-config "$APP"
 }
 
 cmd-http-auth-add-allowed-ip() {
@@ -147,6 +148,8 @@ cmd-http-auth-add-allowed-ip() {
 
   dokku_log_info1 "Adding $ADDRESS to allowed ip list"
   fn-plugin-property-list-add "http-auth" "$APP" "allowed-ips" "$ADDRESS"
+  fn-http-auth-template-config "$APP"
+  plugn trigger proxy-build-config "$APP"
 }
 
 cmd-http-auth-remove-user() {
@@ -163,7 +166,6 @@ cmd-http-auth-remove-user() {
 
   dokku_log_info1 "Removing $AUTH_USERNAME from basic auth list"
   fn-http-auth-remove-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
-  fn-http-auth-template-config "$APP"
   plugn trigger proxy-build-config "$APP"
 }
 
