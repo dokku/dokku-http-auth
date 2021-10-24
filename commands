@@ -7,17 +7,6 @@ if [[ -n $DOKKU_API_VERSION ]]; then
 fi
 source "$PLUGIN_BASE_PATH/common/functions"
 
-reload_nginx () {
-  case "$DOKKU_DISTRO" in
-    ubuntu)
-      sudo /etc/init.d/nginx reload > /dev/null
-      ;;
-
-    opensuse)
-      sudo /sbin/service nginx reload > /dev/null
-      ;;
-  esac
-}
 
 if [[ $1 == http-auth || $1 == http-auth:* ]]; then
   [[ -z $2 ]] && echo "Please specify an app to run the command on" && exit 1
@@ -39,7 +28,7 @@ case "$1" in
     sed -i "s,{APP_ROOT},$APP_ROOT," "$APP_ROOT/nginx.conf.d/http-auth.conf"
     HASHED_PASSWORD=$(mkpasswd -m sha-512 "$AUTH_PASSWORD")
     echo "$AUTH_USERNAME:$HASHED_PASSWORD" > "$APP_ROOT/htpasswd"
-    reload_nginx
+    plugn trigger proxy-build-config "$APP"
     dokku_log_verbose "done"
     ;;
 
@@ -48,7 +37,7 @@ case "$1" in
     if [[ -f "$APP_ROOT/nginx.conf.d/http-auth.conf" ]]; then
       rm "$APP_ROOT/nginx.conf.d/http-auth.conf"
     fi
-    reload_nginx
+    plugn trigger proxy-build-config "$APP"
     dokku_log_verbose "done"
     ;;
 
