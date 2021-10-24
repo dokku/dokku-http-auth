@@ -95,11 +95,10 @@ cmd-http-auth-on() {
   [[ -z "$AUTH_USERNAME" || -z "$AUTH_PASSWORD" ]] && dokku_log_fail "Please provide a username and a password"
 
   dokku_log_info1 "Enabling HTTP auth for $APP..."
-  if [[ ! -d "$APP_ROOT/nginx.conf.d" ]]; then
-    mkdir "$APP_ROOT/nginx.conf.d"
-  fi
-  cp "$PLUGIN_AVAILABLE_PATH/http-auth/templates/http-auth.conf" "$APP_ROOT/nginx.conf.d"
-  sed -i "s,{APP_ROOT},$APP_ROOT," "$APP_ROOT/nginx.conf.d/http-auth.conf"
+
+  local DOKKU_TEMPLATE="$PLUGIN_AVAILABLE_PATH/http-auth/templates/http-auth.conf"
+  mkdir -p "$APP_ROOT/nginx.conf.d"
+  sigil -f "$DOKKU_TEMPLATE" DOKKU_ROOT="$DOKKU_ROOT" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
 
   fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
 
