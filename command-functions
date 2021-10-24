@@ -96,13 +96,7 @@ cmd-http-auth-on() {
   [[ -z "$AUTH_USERNAME" || -z "$AUTH_PASSWORD" ]] && dokku_log_fail "Please provide a username and a password"
 
   dokku_log_info1 "Enabling HTTP auth for $APP..."
-
-  local DOKKU_TEMPLATE="$PLUGIN_AVAILABLE_PATH/http-auth/templates/http-auth.conf"
-  local ALLOWED_IPS="$(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
-  mkdir -p "$APP_ROOT/nginx.conf.d"
-
-  sigil -f "$DOKKU_TEMPLATE" APP_ROOT="$APP_ROOT" ALLOWED_IPS="$ALLOWED_IPS" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
-
+  fn-http-auth-template-config "$APP"
   fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
 
   plugn trigger proxy-build-config "$APP"
@@ -169,6 +163,8 @@ cmd-http-auth-remove-user() {
 
   dokku_log_info1 "Removing $AUTH_USERNAME from basic auth list"
   fn-http-auth-remove-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
+  fn-http-auth-template-config "$APP"
+  plugn trigger proxy-build-config "$APP"
 }
 
 cmd-http-auth-remove-allowed-ip() {
@@ -179,4 +175,6 @@ cmd-http-auth-remove-allowed-ip() {
 
   dokku_log_info1 "Removing $ADDRESS from allowed ip list"
   fn-plugin-property-list-remove "http-auth" "$APP" "allowed-ips" "$ADDRESS"
+  fn-http-auth-template-config "$APP"
+  plugn trigger proxy-build-config "$APP"
 }
