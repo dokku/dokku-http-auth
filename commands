@@ -1,71 +1,16 @@
 #!/usr/bin/env bash
-set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
-
-PLUGIN_BASE_PATH="$PLUGIN_PATH"
-if [[ -n $DOKKU_API_VERSION ]]; then
-  PLUGIN_BASE_PATH="$PLUGIN_ENABLED_PATH"
-fi
-source "$PLUGIN_BASE_PATH/common/functions"
-
-
-if [[ $1 == http-auth || $1 == http-auth:* ]]; then
-  [[ -z $2 ]] && echo "Please specify an app to run the command on" && exit 1
-  verify_app_name "$2"
-  APP="$2"
-  APP_ROOT="$DOKKU_ROOT/$APP"
-fi
+[[ " help http-auth:help " == *" $1 "* ]] || exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
+source "$PLUGIN_AVAILABLE_PATH/http-auth/help-functions"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
 
 case "$1" in
-  http-auth:on)
-    [[ -z $3 || -z $4 ]] && echo "Please provide a username and a password" && exit 1
-    AUTH_USERNAME="$3"
-    AUTH_PASSWORD="$4"
-    dokku_log_info1 "Enabling HTTP auth for $APP..."
-    if [[ ! -d "$APP_ROOT/nginx.conf.d" ]]; then
-      mkdir "$APP_ROOT/nginx.conf.d"
-    fi
-    cp "$(dirname "$0")/templates/http-auth.conf" "$APP_ROOT/nginx.conf.d"
-    sed -i "s,{APP_ROOT},$APP_ROOT," "$APP_ROOT/nginx.conf.d/http-auth.conf"
-    HASHED_PASSWORD=$(mkpasswd -m sha-512 "$AUTH_PASSWORD")
-    echo "$AUTH_USERNAME:$HASHED_PASSWORD" > "$APP_ROOT/htpasswd"
-    plugn trigger proxy-build-config "$APP"
-    dokku_log_verbose "done"
-    ;;
-
-  http-auth:off)
-    dokku_log_info1 "Disabling HTTP auth for $APP..."
-    if [[ -f "$APP_ROOT/nginx.conf.d/http-auth.conf" ]]; then
-      rm "$APP_ROOT/nginx.conf.d/http-auth.conf"
-    fi
-    plugn trigger proxy-build-config "$APP"
-    dokku_log_verbose "done"
-    ;;
-
-  http-auth)
-    dokku_log_info1 "HTTP auth status of $APP: "
-    AUTH_STATUS="off"
-    if [[ -f "$APP_ROOT/nginx.conf.d/http-auth.conf" ]]; then
-      AUTH_STATUS="on"
-    fi
-    dokku_log_verbose "$AUTH_STATUS"
-    ;;
-
-  help)
-    HELP=$(cat<<EOF
-    http-auth <app>, Display the current HTTP auth status of app
-    http-auth:on <app> <user> <password>, Enable HTTP auth for app
-    http-auth:off <app>, Disable HTTP auth for app
-EOF
-)
-    if [[ -n $DOKKU_API_VERSION ]]; then
-      echo "$HELP"
-    else
-      cat && echo "$HELP"
-    fi
+  help | http-auth:help)
+    cmd-http-auth-help "$@"
     ;;
 
   *)
-    exit $DOKKU_NOT_IMPLEMENTED_EXIT
+    exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
     ;;
 
 esac

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+fn-http-auth-enabled() {
+  declare desc="check if an app has http-auth enabled"
+  declare APP="$1"
+  local APP_ROOT="$DOKKU_ROOT/$APP"
+  local enabled=false
+
+  if [[ -f "$APP_ROOT/nginx.conf.d/http-auth.conf" ]]; then
+    enabled=true
+  fi
+
+  echo "$enabled"
+}
+
+fn-http-auth-add-user() {
+  declare APP="$1" AUTH_USERNAME="$2" AUTH_PASSWORD="$3"
+  local APP_ROOT="$DOKKU_ROOT/$APP"
+
+  touch "$APP_ROOT/htpasswd"
+  sed -i "/^${AUTH_USERNAME}:/d" "$APP_ROOT/htpasswd"
+  HASHED_PASSWORD=$(mkpasswd -m sha-512 "$AUTH_PASSWORD")
+  echo "$AUTH_USERNAME:$HASHED_PASSWORD" >>"$APP_ROOT/htpasswd"
+}
+
+fn-http-auth-remove-user() {
+  declare APP="$1" AUTH_USERNAME="$2"
+  local APP_ROOT="$DOKKU_ROOT/$APP"
+
+  touch "$APP_ROOT/htpasswd"
+  sed -i "/^${AUTH_USERNAME}:/d" "$APP_ROOT/htpasswd"
+}

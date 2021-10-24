@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
 
 if [[ -z $(which mkpasswd) ]]; then
   apt-get update && apt-get install -y whois

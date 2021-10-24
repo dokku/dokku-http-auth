@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+cmd-http-auth-help() {
+  declare desc="help command"
+  declare CMD="$1"
+  local plugin_name="http-auth"
+  local plugin_description="Manage the http-auth proxy"
+
+  if [[ "$CMD" == "${plugin_name}:help" ]]; then
+    echo -e "Usage: dokku ${plugin_name}[:COMMAND]"
+    echo ''
+    echo "$plugin_description"
+    echo ''
+    echo 'Additional commands:'
+    fn-help-content | sort | column -c2 -t -s,
+  elif [[ $(ps -o command= $PPID) == *"--all"* ]]; then
+    fn-help-content
+  else
+    cat <<help_desc
+    $plugin_name, $plugin_description
+help_desc
+  fi
+}
+
+fn-help-content() {
+  declare desc="return help content"
+  cat <<help_content
+    http-auth <app>, Display the current HTTP auth status of app
+    http-auth:add-user <app> <user> <password>, Add basic auth user to app
+    http-auth:off <app>, Disable HTTP auth for app
+    http-auth:on <app> <user> <password>, Enable HTTP auth for app
+    http-auth:remove-user <app> <user>, Remove basic auth user from app
+    http-auth:report [<app>] [<flag>], Displays an http-auth report for one or more apps
+    http-auth:show-config <app>, Display app http-auth config
+help_content
+}

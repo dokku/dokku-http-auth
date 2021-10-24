@@ -9,10 +9,6 @@ dokku-http-auth is a plugin for [dokku][dokku] that gives the ability to enable 
 ## Installation
 
 ```sh
-# dokku 0.3.26
-$ sudo git clone https://github.com/dokku/dokku-http-auth.git /var/lib/dokku/plugins/http-auth
-$ dokku plugins-install
-
 # dokku 0.4+
 $ dokku plugin:install https://github.com/dokku/dokku-http-auth.git
 ```
@@ -20,18 +16,22 @@ $ dokku plugin:install https://github.com/dokku/dokku-http-auth.git
 ## Commands
 
 ```
-$ dokku help
-    http-auth <app>                                 Display the current HTTP auth status of app
-    http-auth:on <app> <user> <password>            Enable HTTP auth for app
-    http-auth:off <app>                             Disable HTTP auth for app
+$ dokku http-auth:help
+    http-auth <app>                            Display the current HTTP auth status of app
+    http-auth:add-user <app> <user> <password> Add basic auth user to app
+    http-auth:off <app>                        Disable HTTP auth for app
+    http-auth:on <app> <user> <password>       Enable HTTP auth for app
+    http-auth:remove-user <app> <user>         Remove basic auth user from app
+    http-auth:report [<app>] [<flag>]          Displays an http-auth report for one or more apps
+    http-auth:show-config <app>                Display app http-auth config
 ```
 
 ## Usage
 
 Check HTTP auth status of my-app
 ```
-# dokku http-auth my-app            # Server side
-$ ssh dokku@server http-auth my-app # Client side
+# dokku http-auth:report my-app            # Server side
+$ ssh dokku@server http-auth:report my-app # Client side
 
 -----> HTTP auth status of my-app:
        off
@@ -59,4 +59,4 @@ $ ssh dokku@server http-auth:off my-app # Client side
 
 This plugin is released under the MIT license. See the file [LICENSE](LICENSE).
 
-[dokku]: https://github.com/progrium/dokku
+[dokku]: https://github.com/dokku/dokku
