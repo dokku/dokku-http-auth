@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-if [[ -z $(which mkpasswd) ]]; then
-  apt-get update && apt-get install -y whois
-fi
+trigger-http-auth-install() {
+  declare desc="installs the http-auth plugin"
+  declare trigger="install"
+
+  fn-plugin-property-setup "http-auth"
+  if [[ -z "$(which mkpasswd 2>/dev/null)" ]]; then
+    apt-get update && apt-get install -y whois
+  fi
+}
+
+trigger-builder-herokuish-install "$@"

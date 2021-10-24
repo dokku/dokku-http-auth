@@ -17,13 +17,15 @@ $ dokku plugin:install https://github.com/dokku/dokku-http-auth.git
 
 ```
 $ dokku http-auth:help
-    http-auth <app>                            Display the current HTTP auth status of app
-    http-auth:add-user <app> <user> <password> Add basic auth user to app
-    http-auth:off <app>                        Disable HTTP auth for app
-    http-auth:on <app> <user> <password>       Enable HTTP auth for app
-    http-auth:remove-user <app> <user>         Remove basic auth user from app
-    http-auth:report [<app>] [<flag>]          Displays an http-auth report for one or more apps
-    http-auth:show-config <app>                Display app http-auth config
+    http-auth <app>                             Display the current HTTP auth status of app
+    http-auth:add-user <app> <user> <password>  Add basic auth user to app
+    http-auth:add-allowed-ip <app> <address>    Add allowed IP to basic auth bypass for an app
+    http-auth:off <app>                         Disable HTTP auth for app
+    http-auth:on <app> <user> <password>        Enable HTTP auth for app
+    http-auth:remove-allowed-ip <app> <address> Remove allowed IP from basic auth bypass for an app
+    http-auth:remove-user <app> <user>          Remove basic auth user from app
+    http-auth:report [<app>] [<flag>]           Displays an http-auth report for one or more apps
+    http-auth:show-config <app>                 Display app http-auth config
 ```
 
 ## Usage

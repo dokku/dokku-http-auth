@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
+source "$PLUGIN_AVAILABLE_PATH/http-auth/internal-functions"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
-source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
-source "$PLUGIN_AVAILABLE_PATH/http-auth/internal-functions"
 
 cmd-http-auth-report() {
   declare desc="displays a http-auth report for one or more apps"
@@ -97,8 +98,10 @@ cmd-http-auth-on() {
   dokku_log_info1 "Enabling HTTP auth for $APP..."
 
   local DOKKU_TEMPLATE="$PLUGIN_AVAILABLE_PATH/http-auth/templates/http-auth.conf"
+  local ALLOWED_IPS="$(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
   mkdir -p "$APP_ROOT/nginx.conf.d"
-  sigil -f "$DOKKU_TEMPLATE" APP_ROOT="$APP_ROOT" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
+
+  sigil -f "$DOKKU_TEMPLATE" APP_ROOT="$APP_ROOT" ALLOWED_IPS="$ALLOWED_IPS" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
 
   fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
 
@@ -141,6 +144,17 @@ cmd-http-auth-add-user() {
   fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
 }
 
+cmd-http-auth-add-allowed-ip() {
+  declare desc="add allowed ip to basic auth bypass for an app"
+  declare cmd="http-auth:add-allowed-ip"
+  [[ "$1" == "$cmd" ]] && shift 1
+  declare APP="$1" ADDRESS="$2"
+
+
+  dokku_log_info1 "Adding $ADDRESS to allowed ip list"
+  fn-plugin-property-list-add "http-auth" "$APP" "allowed-ips" "$ADDRESS"
+}
+
 cmd-http-auth-remove-user() {
   declare desc="remove http auth user from app"
   declare cmd="http-auth:remove-user"
@@ -155,4 +169,14 @@ cmd-http-auth-remove-user() {
 
   dokku_log_info1 "Removing $AUTH_USERNAME from basic auth list"
   fn-http-auth-remove-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
+}
+
+cmd-http-auth-remove-allowed-ip() {
+  declare desc="remove allowed ip from basic auth bypass for an app"
+  declare cmd="http-auth:remove-allowed-ip"
+  [[ "$1" == "$cmd" ]] && shift 1
+  declare APP="$1" ADDRESS="$2"
+
+  dokku_log_info1 "Removing $ADDRESS from allowed ip list"
+  fn-plugin-property-list-remove "http-auth" "$APP" "allowed-ips" "$ADDRESS"
 }

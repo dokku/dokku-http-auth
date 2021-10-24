@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+trigger-http-auth-post-delete() {
+  declare desc="destroys the http-auth properties for a given app"
+  declare trigger="post-delete"
+  declare APP="$1"
+
+  fn-plugin-property-destroy "http-auth" "$APP"
+}
+
+trigger-http-auth-post-delete "$@"
