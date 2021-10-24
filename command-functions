@@ -138,6 +138,7 @@ cmd-http-auth-add-user() {
     return
   fi
 
+  dokku_log_info1 "Adding $AUTH_USERNAME to basic auth list"
   fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
 }
 
@@ -153,5 +154,6 @@ cmd-http-auth-remove-user() {
     return
   fi
 
+  dokku_log_info1 "Removing $AUTH_USERNAME from basic auth list"
   fn-http-auth-remove-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
 }
