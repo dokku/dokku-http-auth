@@ -1,4 +1,4 @@
 [plugin]
 description = "HTTP authentication for apps"
-version = "0.5.1"
+version = "0.5.2"
 [plugin.config]
