@@ -13,4 +13,4 @@ trigger-http-auth-install() {
   fi
 }
 
-trigger-builder-herokuish-install "$@"
+trigger-http-auth-install "$@"
