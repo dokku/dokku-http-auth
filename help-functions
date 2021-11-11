@@ -27,7 +27,6 @@ help_desc
 fn-help-content() {
   declare desc="return help content"
   cat <<help_content
-    http-auth <app>, Display the current HTTP auth status of app
     http-auth:add-user <app> <user> <password>, Add basic auth user to app
     http-auth:add-allowed-ip <app> <address>, add allowed ip to basic auth bypass for an app
     http-auth:off <app>, Disable HTTP auth for app
