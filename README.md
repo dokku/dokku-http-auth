@@ -17,7 +17,6 @@ $ dokku plugin:install https://github.com/dokku/dokku-http-auth.git
 
 ```
 $ dokku http-auth:help
-    http-auth <app>                             Display the current HTTP auth status of app
     http-auth:add-user <app> <user> <password>  Add basic auth user to app
     http-auth:add-allowed-ip <app> <address>    Add allowed IP to basic auth bypass for an app
     http-auth:off <app>                         Disable HTTP auth for app
