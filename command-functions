@@ -10,7 +10,8 @@ cmd-http-auth-report() {
   declare cmd="http-auth:report"
   [[ "$1" == "$cmd" ]] && shift 1
   declare APP="$1" INFO_FLAG="$2"
-  local INSTALLED_APPS=$(dokku_apps)
+  local INSTALLED_APPS
+  INSTALLED_APPS=$(dokku_apps)
 
   if [[ -n "$APP" ]] && [[ "$APP" == --* ]]; then
     INFO_FLAG="$APP"
@@ -93,11 +94,13 @@ cmd-http-auth-on() {
     return
   fi
 
-  [[ -z "$AUTH_USERNAME" || -z "$AUTH_PASSWORD" ]] && dokku_log_fail "Please provide a username and a password"
-
   dokku_log_info1 "Enabling HTTP auth for $APP..."
   fn-http-auth-template-config "$APP"
-  fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
+  if [[ -n "$AUTH_USERNAME" ]] && [[ "$AUTH_PASSWORD" ]]; then
+    fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
+  else
+     dokku_log_warn "Skipping user initialization"
+   fi
 
   plugn trigger proxy-build-config "$APP"
   dokku_log_verbose "Done"
@@ -117,7 +120,7 @@ cmd-http-auth-off() {
   fi
 
   dokku_log_info1 "Disabling HTTP auth for $APP..."
-  rm -f "$APP_ROOT/nginx.conf.d/http-auth.conf" "$APP_ROOT/htpasswd"
+  rm -f "$APP_ROOT/nginx.conf.d/http-auth.conf"
   plugn trigger proxy-build-config "$APP"
   dokku_log_verbose "Done"
 }

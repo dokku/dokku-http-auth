@@ -37,9 +37,11 @@ fn-http-auth-template-config() {
   declare APP="$1"
   local APP_ROOT="$DOKKU_ROOT/$APP"
   local DOKKU_TEMPLATE="$PLUGIN_AVAILABLE_PATH/http-auth/templates/http-auth.conf"
+  local ALLOWED_IPS
 
-  local ALLOWED_IPS="$(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
+  ALLOWED_IPS="$(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
   mkdir -p "$APP_ROOT/nginx.conf.d"
 
   sigil -f "$DOKKU_TEMPLATE" APP_ROOT="$APP_ROOT" ALLOWED_IPS="$ALLOWED_IPS" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
+  touch "$APP_ROOT/htpasswd"
 }
