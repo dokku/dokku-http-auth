@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
@@ -25,6 +26,16 @@ fn-http-auth-add-user() {
   echo "$AUTH_USERNAME:$HASHED_PASSWORD" >>"$APP_ROOT/htpasswd"
 }
 
+fn-http-auth-list-users() {
+  declare APP="$1"
+  local APP_ROOT="$DOKKU_ROOT/$APP"
+
+  touch "$APP_ROOT/htpasswd"
+  while IFS="" read -r line || [[ -n "$line" ]]; do
+    printf '%s\n' "$line" | cut -d':' -f1
+  done <"$APP_ROOT/htpasswd"
+}
+
 fn-http-auth-remove-user() {
   declare APP="$1" AUTH_USERNAME="$2"
   local APP_ROOT="$DOKKU_ROOT/$APP"
@@ -37,9 +48,11 @@ fn-http-auth-template-config() {
   declare APP="$1"
   local APP_ROOT="$DOKKU_ROOT/$APP"
   local DOKKU_TEMPLATE="$PLUGIN_AVAILABLE_PATH/http-auth/templates/http-auth.conf"
+  local ALLOWED_IPS
 
-  local ALLOWED_IPS="$(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
+  ALLOWED_IPS="$(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
   mkdir -p "$APP_ROOT/nginx.conf.d"
 
   sigil -f "$DOKKU_TEMPLATE" APP_ROOT="$APP_ROOT" ALLOWED_IPS="$ALLOWED_IPS" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
+  touch "$APP_ROOT/htpasswd"
 }

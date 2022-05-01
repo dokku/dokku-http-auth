@@ -10,7 +10,8 @@ cmd-http-auth-report() {
   declare cmd="http-auth:report"
   [[ "$1" == "$cmd" ]] && shift 1
   declare APP="$1" INFO_FLAG="$2"
-  local INSTALLED_APPS=$(dokku_apps)
+  local INSTALLED_APPS
+  INSTALLED_APPS=$(dokku_apps)
 
   if [[ -n "$APP" ]] && [[ "$APP" == --* ]]; then
     INFO_FLAG="$APP"
@@ -38,6 +39,8 @@ cmd-http-auth-report-single() {
   verify_app_name "$APP"
   local flag_map=(
     "--http-auth-enabled: $(fn-http-auth-enabled "$APP")"
+    "--http-auth-allowed-ips: $(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
+    "--http-auth-users: $(fn-http-auth-list-users "$APP" | xargs)"
   )
 
   if [[ -z "$INFO_FLAG" ]]; then
@@ -93,11 +96,13 @@ cmd-http-auth-on() {
     return
   fi
 
-  [[ -z "$AUTH_USERNAME" || -z "$AUTH_PASSWORD" ]] && dokku_log_fail "Please provide a username and a password"
-
   dokku_log_info1 "Enabling HTTP auth for $APP..."
   fn-http-auth-template-config "$APP"
-  fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
+  if [[ -n "$AUTH_USERNAME" ]] && [[ "$AUTH_PASSWORD" ]]; then
+    fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
+  else
+    dokku_log_warn "Skipping user initialization"
+  fi
 
   plugn trigger proxy-build-config "$APP"
   dokku_log_verbose "Done"
@@ -117,7 +122,7 @@ cmd-http-auth-off() {
   fi
 
   dokku_log_info1 "Disabling HTTP auth for $APP..."
-  rm -f "$APP_ROOT/nginx.conf.d/http-auth.conf" "$APP_ROOT/htpasswd"
+  rm -f "$APP_ROOT/nginx.conf.d/http-auth.conf"
   plugn trigger proxy-build-config "$APP"
   dokku_log_verbose "Done"
 }
@@ -131,7 +136,17 @@ cmd-http-auth-add-user() {
   verify_app_name "$APP"
   if [[ "$(fn-http-auth-enabled "$APP")" == "false" ]]; then
     dokku_log_fail "Authentication is disabled"
-    return
+    return 1
+  fi
+
+  if [[ -z "$AUTH_USERNAME" ]]; then
+    dokku_log_fail "Missing username"
+    return 1
+  fi
+
+  if [[ -z "$AUTH_PASSWORD" ]]; then
+    dokku_log_fail "Missing username"
+    return 1
   fi
 
   dokku_log_info1 "Adding $AUTH_USERNAME to basic auth list"
@@ -145,7 +160,12 @@ cmd-http-auth-add-allowed-ip() {
   [[ "$1" == "$cmd" ]] && shift 1
   declare APP="$1" ADDRESS="$2"
 
+  if [[ -z "$ADDRESS" ]]; then
+    dokku_log_fail "Missing ip address"
+    return 1
+  fi
 
+  verify_app_name "$APP"
   dokku_log_info1 "Adding $ADDRESS to allowed ip list"
   fn-plugin-property-list-add "http-auth" "$APP" "allowed-ips" "$ADDRESS"
   fn-http-auth-template-config "$APP"
@@ -156,16 +176,21 @@ cmd-http-auth-remove-user() {
   declare desc="remove http auth user from app"
   declare cmd="http-auth:remove-user"
   [[ "$1" == "$cmd" ]] && shift 1
-  declare APP="$1" AUTH_USERNAME="$2" AUTH_PASSWORD="$3"
+  declare APP="$1" AUTH_USERNAME="$2"
 
   verify_app_name "$APP"
   if [[ "$(fn-http-auth-enabled "$APP")" == "false" ]]; then
     dokku_log_fail "Authentication is disabled"
-    return
+    return 1
+  fi
+
+  if [[ -z "$AUTH_USERNAME" ]]; then
+    dokku_log_fail "Missing username"
+    return 1
   fi
 
   dokku_log_info1 "Removing $AUTH_USERNAME from basic auth list"
-  fn-http-auth-remove-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
+  fn-http-auth-remove-user "$APP" "$AUTH_USERNAME"
   plugn trigger proxy-build-config "$APP"
 }
 
@@ -174,6 +199,13 @@ cmd-http-auth-remove-allowed-ip() {
   declare cmd="http-auth:remove-allowed-ip"
   [[ "$1" == "$cmd" ]] && shift 1
   declare APP="$1" ADDRESS="$2"
+
+  verify_app_name "$APP"
+
+  if [[ -z "$ADDRESS" ]]; then
+    dokku_log_fail "Missing ip address"
+    return 1
+  fi
 
   dokku_log_info1 "Removing $ADDRESS from allowed ip list"
   fn-plugin-property-list-remove "http-auth" "$APP" "allowed-ips" "$ADDRESS"
