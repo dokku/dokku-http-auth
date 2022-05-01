@@ -25,6 +25,16 @@ fn-http-auth-add-user() {
   echo "$AUTH_USERNAME:$HASHED_PASSWORD" >>"$APP_ROOT/htpasswd"
 }
 
+fn-http-auth-list-users() {
+  declare APP="$1"
+  local APP_ROOT="$DOKKU_ROOT/$APP"
+
+  touch "$APP_ROOT/htpasswd"
+  while IFS="" read -r p || [[ -n "$p" ]]; do
+    printf '%s\n' "$p" | cut -d':' -f1
+  done < "$APP_ROOT/htpasswd"
+}
+
 fn-http-auth-remove-user() {
   declare APP="$1" AUTH_USERNAME="$2"
   local APP_ROOT="$DOKKU_ROOT/$APP"
