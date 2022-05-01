@@ -150,6 +150,7 @@ cmd-http-auth-add-allowed-ip() {
   [[ "$1" == "$cmd" ]] && shift 1
   declare APP="$1" ADDRESS="$2"
 
+  verify_app_name "$APP"
   dokku_log_info1 "Adding $ADDRESS to allowed ip list"
   fn-plugin-property-list-add "http-auth" "$APP" "allowed-ips" "$ADDRESS"
   fn-http-auth-template-config "$APP"
@@ -179,6 +180,7 @@ cmd-http-auth-remove-allowed-ip() {
   [[ "$1" == "$cmd" ]] && shift 1
   declare APP="$1" ADDRESS="$2"
 
+  verify_app_name "$APP"
   dokku_log_info1 "Removing $ADDRESS from allowed ip list"
   fn-plugin-property-list-remove "http-auth" "$APP" "allowed-ips" "$ADDRESS"
   fn-http-auth-template-config "$APP"
