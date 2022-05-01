@@ -32,7 +32,7 @@ fn-http-auth-list-users() {
   touch "$APP_ROOT/htpasswd"
   while IFS="" read -r p || [[ -n "$p" ]]; do
     printf '%s\n' "$p" | cut -d':' -f1
-  done < "$APP_ROOT/htpasswd"
+  done <"$APP_ROOT/htpasswd"
 }
 
 fn-http-auth-remove-user() {

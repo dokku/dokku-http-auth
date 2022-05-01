@@ -101,8 +101,8 @@ cmd-http-auth-on() {
   if [[ -n "$AUTH_USERNAME" ]] && [[ "$AUTH_PASSWORD" ]]; then
     fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
   else
-     dokku_log_warn "Skipping user initialization"
-   fi
+    dokku_log_warn "Skipping user initialization"
+  fi
 
   plugn trigger proxy-build-config "$APP"
   dokku_log_verbose "Done"
@@ -149,7 +149,6 @@ cmd-http-auth-add-allowed-ip() {
   declare cmd="http-auth:add-allowed-ip"
   [[ "$1" == "$cmd" ]] && shift 1
   declare APP="$1" ADDRESS="$2"
-
 
   dokku_log_info1 "Adding $ADDRESS to allowed ip list"
   fn-plugin-property-list-add "http-auth" "$APP" "allowed-ips" "$ADDRESS"
