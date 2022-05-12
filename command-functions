@@ -2,6 +2,7 @@
 source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
 source "$PLUGIN_AVAILABLE_PATH/http-auth/internal-functions"
+source "$PLUGIN_AVAILABLE_PATH/nginx-vhosts/functions"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
@@ -106,7 +107,7 @@ cmd-http-auth-on() {
     dokku_log_warn "Skipping user initialization"
   fi
 
-  plugn trigger proxy-build-config "$APP"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
   dokku_log_verbose "Done"
 }
 
@@ -125,7 +126,7 @@ cmd-http-auth-off() {
 
   dokku_log_info1 "Disabling HTTP auth for $APP..."
   rm -f "$APP_ROOT/nginx.conf.d/http-auth.conf"
-  plugn trigger proxy-build-config "$APP"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
   dokku_log_verbose "Done"
 }
 
@@ -153,7 +154,7 @@ cmd-http-auth-add-user() {
 
   dokku_log_info1 "Adding $AUTH_USERNAME to basic auth list"
   fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
-  plugn trigger proxy-build-config "$APP"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
 cmd-http-auth-add-allowed-ip() {
@@ -176,7 +177,7 @@ cmd-http-auth-add-allowed-ip() {
 
   fn-plugin-property-list-add "http-auth" "$APP" "allowed-ips" "$ADDRESS"
   fn-http-auth-template-config "$APP"
-  plugn trigger proxy-build-config "$APP"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
 cmd-http-auth-remove-user() {
@@ -198,7 +199,7 @@ cmd-http-auth-remove-user() {
 
   dokku_log_info1 "Removing $AUTH_USERNAME from basic auth list"
   fn-http-auth-remove-user "$APP" "$AUTH_USERNAME"
-  plugn trigger proxy-build-config "$APP"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
 cmd-http-auth-remove-allowed-ip() {
@@ -217,5 +218,5 @@ cmd-http-auth-remove-allowed-ip() {
   dokku_log_info1 "Removing $ADDRESS from allowed ip list"
   fn-plugin-property-list-remove "http-auth" "$APP" "allowed-ips" "$ADDRESS"
   fn-http-auth-template-config "$APP"
-  plugn trigger proxy-build-config "$APP"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
