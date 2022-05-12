@@ -59,6 +59,8 @@ cmd-http-auth-report-single() {
         size="${#value}"
         if [[ "$size" -ne 0 ]]; then
           echo "$value" && match=true && value_exists=true
+        elif [[ "$INFO_FLAG" == "--http-auth-allowed-ips" ]]; then
+          match=true && value_exists=true
         else
           match=true
         fi
