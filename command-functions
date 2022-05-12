@@ -168,7 +168,12 @@ cmd-http-auth-add-allowed-ip() {
   fi
 
   verify_app_name "$APP"
+
   dokku_log_info1 "Adding $ADDRESS to allowed ip list"
+  if fn-plugin-property-list-get-by-value "http-auth" "$APP" "allowed-ips" "$ADDRESS" 2>/dev/null; then
+    return
+  fi
+
   fn-plugin-property-list-add "http-auth" "$APP" "allowed-ips" "$ADDRESS"
   fn-http-auth-template-config "$APP"
   plugn trigger proxy-build-config "$APP"
