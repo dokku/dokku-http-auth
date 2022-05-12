@@ -9,23 +9,23 @@ teardown() {
   rm "$DOKKU_ROOT/my_app" -rf
 }
 
-@test "(http-auth) error when there are no arguments" {
-  run dokku http-auth
+@test "(http-auth:report) error when there are no arguments" {
+  run dokku http-auth:report
   assert_contains "${lines[*]}" "Please specify an app to run the command on"
 }
 
-@test "(http-auth) error when app does not exist" {
-  run dokku http-auth non_existing_app
+@test "(http-auth:report) error when app does not exist" {
+  run dokku http-auth:report non_existing_app
   assert_contains "${lines[*]}" "App non_existing_app does not exist"
 }
 
-@test "(http-auth) success when on" {
-  dokku http-auth:on my_app user password
+@test "(http-auth:report) success when on" {
+  dokku http-auth:report my_app user password
   run dokku http-auth my_app
-  assert_contains "${lines[*]}" "on"
+  assert_contains "${lines[*]}" "true"
 }
 
-@test "(http-auth) success when off" {
-  run dokku http-auth my_app
-  assert_contains "${lines[*]}" "off"
+@test "(http-auth:report) success when off" {
+  run dokku http-auth:report my_app
+  assert_contains "${lines[*]}" "false"
 }

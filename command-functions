@@ -86,10 +86,15 @@ cmd-http-auth-show-config() {
   cat "$DOKKU_ROOT/$APP/nginx.conf.d/http-auth.conf"
 }
 
-cmd-http-auth-on() {
+cmd-http-auth-enable() {
   declare desc="enable http auth for app"
-  declare cmd="http-auth:on"
+  declare cmd="http-auth:enable"
   [[ "$1" == "$cmd" ]] && shift 1
+  if [[ "$1" == "http-auth:on" ]]; then
+    dokku_log_warn "Deprecated: Please use http-auth:enable"
+    shift 1
+  fi
+
   declare APP="$1" AUTH_USERNAME="$2" AUTH_PASSWORD="$3"
   local APP_ROOT="$DOKKU_ROOT/$APP"
 
@@ -111,10 +116,14 @@ cmd-http-auth-on() {
   dokku_log_verbose "Done"
 }
 
-cmd-http-auth-off() {
+cmd-http-auth-disable() {
   declare desc="disable http auth for app"
-  declare cmd="http-auth:off"
+  declare cmd="http-auth:disable"
   [[ "$1" == "$cmd" ]] && shift 1
+  if [[ "$1" == "http-auth:off" ]]; then
+    dokku_log_warn "Deprecated: Please use http-auth:disable"
+    shift 1
+  fi
   declare APP="$1"
   local APP_ROOT="$DOKKU_ROOT/$APP"
 

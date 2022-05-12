@@ -29,8 +29,8 @@ fn-help-content() {
   cat <<help_content
     http-auth:add-user <app> <user> <password>, Add basic auth user to app
     http-auth:add-allowed-ip <app> <address>, add allowed ip to basic auth bypass for an app
-    http-auth:off <app>, Disable HTTP auth for app
-    http-auth:on <app> [<user>] [<password>], Enable HTTP auth for app
+    http-auth:disable <app>, Disable HTTP auth for app
+    http-auth:enable <app> [<user>] [<password>], Enable HTTP auth for app
     http-auth:remove-allowed-ip <app> <address>, remove allowed ip from basic auth bypass for an app
     http-auth:remove-user <app> <user>, Remove basic auth user from app
     http-auth:report [<app>] [<flag>], Displays an http-auth report for one or more apps
