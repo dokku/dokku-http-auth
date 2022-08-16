@@ -31,10 +31,10 @@ $ dokku http-auth:help
 
 ### Enabling HTTP Auth
 
-The `http-auth:on` command can be used to enable HTTP Auth for an app.
+The `http-auth:enable` command can be used to enable HTTP Auth for an app.
 
 ```shell
-dokku http-auth:on node-js-app
+dokku http-auth:enable node-js-app
 ```
 
 ```
@@ -50,7 +50,7 @@ dokku http-auth:on node-js-app
 A user/password combination can also be specified when enabling HTTP Auth.
 
 ```shell
-dokku http-auth:on node-js-app username password
+dokku http-auth:enable node-js-app username password
 ```
 
 ```
