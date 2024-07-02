@@ -48,7 +48,7 @@ fn-http-auth-template-config() {
   declare APP="$1"
   local APP_ROOT="$DOKKU_ROOT/$APP"
   local DOKKU_TEMPLATE="$PLUGIN_AVAILABLE_PATH/http-auth/templates/http-auth.conf"
-  local HAS_ALLOWED_USERS="$(test -s $APP_ROOT/htpasswd || echo "false")"
+  local HAS_ALLOWED_USERS="$(test -s $APP_ROOT/htpasswd && echo "true")"
   local ALLOWED_IPS
 
   ALLOWED_IPS="$(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
