@@ -138,7 +138,7 @@ dokku http-auth:show-config node-js-app username
 
 ```
 auth_basic           "Restricted";
-auth_basic_user_file /home/dokku/node-js-app/htpasswd;
+auth_basic_user_file /etc/nginx/htpasswd/node-js-app;
 ```
 
 ### Displaying http auth reports for an app

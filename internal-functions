@@ -17,43 +17,68 @@ fn-http-auth-enabled() {
 }
 
 fn-http-auth-add-user() {
+  declare desc="add http auth user to app"
   declare APP="$1" AUTH_USERNAME="$2" AUTH_PASSWORD="$3"
   local APP_ROOT="$DOKKU_ROOT/$APP"
 
-  touch "$APP_ROOT/htpasswd"
-  sed -i "/^${AUTH_USERNAME}:/d" "$APP_ROOT/htpasswd"
+  fn-http-auth-init "$APP"
+  sed -i "/^${AUTH_USERNAME}:/d" "$DOKKU_LIB_ROOT/data/http-auth/$APP/htpasswd"
   HASHED_PASSWORD=$(mkpasswd -m sha-512 "$AUTH_PASSWORD")
-  echo "$AUTH_USERNAME:$HASHED_PASSWORD" >>"$APP_ROOT/htpasswd"
+  echo "$AUTH_USERNAME:$HASHED_PASSWORD" >>"$DOKKU_LIB_ROOT/data/http-auth/$APP/htpasswd"
+  fn-http-auth-setup-htpasswd "$APP"
+}
+
+fn-http-auth-init() {
+  declare desc="initialize http auth for app"
+  declare APP="$1"
+  local APP_ROOT="$DOKKU_ROOT/$APP"
+
+  mkdir -p "$DOKKU_LIB_ROOT/data/http-auth/$APP"
+  chown "$DOKKU_SYSTEM_USER:$DOKKU_SYSTEM_GROUP" "$DOKKU_LIB_ROOT/data/http-auth/$APP"
+  touch "$DOKKU_LIB_ROOT/data/http-auth/$APP/htpasswd"
+  chown "$DOKKU_SYSTEM_USER:$DOKKU_SYSTEM_GROUP" "$DOKKU_LIB_ROOT/data/http-auth/$APP/htpasswd"
+}
+
+fn-http-auth-setup-htpasswd() {
+  declare desc="copy htpasswd to nginx"
+  declare APP="$1"
+
+  sudo "$PLUGIN_AVAILABLE_PATH/http-auth/bin/setup-htpasswd" "$APP"
 }
 
 fn-http-auth-list-users() {
+  declare desc="list http auth users for app"
   declare APP="$1"
   local APP_ROOT="$DOKKU_ROOT/$APP"
 
-  touch "$APP_ROOT/htpasswd"
+  fn-http-auth-init "$APP"
   while IFS="" read -r line || [[ -n "$line" ]]; do
     printf '%s\n' "$line" | cut -d':' -f1
-  done <"$APP_ROOT/htpasswd"
+  done <"$DOKKU_LIB_ROOT/data/http-auth/$APP/htpasswd"
+  fn-http-auth-setup-htpasswd "$APP"
 }
 
 fn-http-auth-remove-user() {
+  declare desc="remove http auth user from app"
   declare APP="$1" AUTH_USERNAME="$2"
   local APP_ROOT="$DOKKU_ROOT/$APP"
 
-  touch "$APP_ROOT/htpasswd"
-  sed -i "/^${AUTH_USERNAME}:/d" "$APP_ROOT/htpasswd"
+  fn-http-auth-init "$APP"
+  sed -i "/^${AUTH_USERNAME}:/d" "$DOKKU_LIB_ROOT/data/http-auth/$APP/htpasswd"
+  fn-http-auth-setup-htpasswd "$APP"
 }
 
 fn-http-auth-template-config() {
+  declare desc="template http auth config for app"
   declare APP="$1"
   local APP_ROOT="$DOKKU_ROOT/$APP"
   local DOKKU_TEMPLATE="$PLUGIN_AVAILABLE_PATH/http-auth/templates/http-auth.conf"
-  local HAS_ALLOWED_USERS="$(test -s $APP_ROOT/htpasswd && echo "true")"
-  local ALLOWED_IPS
+  local ALLOWED_IPS HAS_ALLOWED_USERS
 
+  HAS_ALLOWED_USERS="$(test -s "$DOKKU_LIB_ROOT/data/http-auth/$APP" && echo "true")"
+  fn-http-auth-init "$APP"
   ALLOWED_IPS="$(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
   mkdir -p "$APP_ROOT/nginx.conf.d"
-
   sigil -f "$DOKKU_TEMPLATE" APP_ROOT="$APP_ROOT" ALLOWED_IPS="$ALLOWED_IPS" HAS_ALLOWED_USERS="$HAS_ALLOWED_USERS" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
-  touch "$APP_ROOT/htpasswd"
+  fn-http-auth-setup-htpasswd "$APP"
 }

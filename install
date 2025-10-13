@@ -11,6 +11,44 @@ trigger-http-auth-install() {
   if [[ -z "$(which mkpasswd 2>/dev/null)" ]]; then
     apt-get update && apt-get install -y whois
   fi
+
+  mkdir -p /etc/nginx/htpasswd/
+  mkdir -p "$DOKKU_LIB_ROOT/data/http-auth/"
+  chown "root:root" "/etc/nginx/htpasswd/"
+  chown "$DOKKU_SYSTEM_USER:$DOKKU_SYSTEM_GROUP" "$DOKKU_LIB_ROOT/data/http-auth/"
+
+  local reload_nginx=false
+  for app in $(dokku_apps "false" 2>/dev/null); do
+    if [[ ! -f "$DOKKU_ROOT/$app/htpasswd" ]]; then
+      continue
+    fi
+
+    mkdir -p "$DOKKU_LIB_ROOT/data/http-auth/$app"
+    chown "$DOKKU_SYSTEM_USER:$DOKKU_SYSTEM_GROUP" "$DOKKU_LIB_ROOT/data/http-auth/$app"
+
+    # migrate the htpasswd file to the new temp location
+    if [[ ! -f "$DOKKU_LIB_ROOT/data/http-auth/$app/htpasswd" ]] && [[ -f "$DOKKU_ROOT/$app/htpasswd" ]]; then
+      mv "$DOKKU_ROOT/$app/htpasswd" "$DOKKU_LIB_ROOT/data/http-auth/$app/htpasswd"
+    fi
+
+    touch "$DOKKU_LIB_ROOT/data/http-auth/$app/htpasswd"
+    chown "$DOKKU_SYSTEM_USER:$DOKKU_SYSTEM_GROUP" "$DOKKU_LIB_ROOT/data/http-auth/$app/htpasswd"
+
+    rm -f "$DOKKU_ROOT/$app/htpasswd"
+    if fn-http-auth-enabled "$app"; then
+      fn-http-auth-template-config "$app"
+      reload_nginx=true
+    fi
+  done
+
+  if [[ "$reload_nginx" == "true" ]]; then
+    validate_nginx "$app" && restart_nginx "$app" >/dev/null
+  fi
+
+  # handle sudoers
+  local HTTP_AUTH_SUDOERS_FILE="/etc/sudoers.d/dokku-http-auth"
+  echo "%dokku ALL=(ALL) NOPASSWD:$PLUGIN_AVAILABLE_PATH/http-auth/bin/setup-htpasswd *, $PLUGIN_AVAILABLE_PATH/http-auth/bin/teardown-htpasswd *" >"$HTTP_AUTH_SUDOERS_FILE"
+  chmod "0440" "$HTTP_AUTH_SUDOERS_FILE"
 }
 
 trigger-http-auth-install "$@"

@@ -32,7 +32,7 @@ teardown() {
 @test "(http-auth:enable) success" {
   run dokku http-auth:enable my_app user password
   assert_exists "$DOKKU_ROOT/my_app/nginx.conf.d/http-auth.conf"
-  htpasswd=$(< "$DOKKU_ROOT/my_app/htpasswd")
+  htpasswd=$(< "$DOKKU_LIB_ROOT/data/http-auth/my_app/htpasswd")
   assert_equal "$htpasswd" 'user:$6$aXBp2sHg8$EV/2iLc1/26QhyVGjagPvcnaqKpTh1F997mRui43F1ioyH5Nvvn7JA83sJAVJypjHjVvGMBUVwgovXm0BC4Wp0'
   assert_success
 }
