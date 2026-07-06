@@ -23,7 +23,7 @@ teardown() {
   dokku http-auth:add-user "$APP" u1 pass1
   run http_auth_conf "$APP"
   [[ "$output" == *"auth_basic"* ]]
-  [[ "$output" == *"auth_basic_user_file /home/dokku/$APP/htpasswd;"* ]]
+  [[ "$output" == *"auth_basic_user_file $(htpasswd_path "$APP");"* ]]
 }
 
 @test "(http-auth:add-user) replaces the password of an existing user" {

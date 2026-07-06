@@ -18,7 +18,7 @@ teardown() {
   fire_nginx_pre_reload "$APP"
   run http_auth_conf "$APP"
   [[ "$output" == *"auth_basic"* ]]
-  [[ "$output" == *"auth_basic_user_file /home/dokku/$APP/htpasswd;"* ]]
+  [[ "$output" == *"auth_basic_user_file $(htpasswd_path "$APP");"* ]]
 }
 
 @test "(nginx-pre-reload) removes the include for a disabled app" {
@@ -47,5 +47,5 @@ teardown() {
   fire_nginx_pre_reload "$APP"
   run http_auth_conf "$APP"
   [[ "$output" == *"auth_basic"* ]]
-  [[ "$output" == *"auth_basic_user_file /home/dokku/$APP/htpasswd;"* ]]
+  [[ "$output" == *"auth_basic_user_file $(htpasswd_path "$APP");"* ]]
 }

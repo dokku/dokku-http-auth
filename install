@@ -1,15 +1,33 @@
 #!/usr/bin/env bash
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
 source "$PLUGIN_AVAILABLE_PATH/http-auth/internal-functions"
+source "$PLUGIN_AVAILABLE_PATH/nginx-vhosts/functions"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
+
+fn-http-auth-install-sudoers() {
+  declare desc="grants the dokku user access to the privileged htpasswd helper"
+  local sudoers_file="/etc/sudoers.d/dokku-http-auth"
+  local helper
+  helper="$(fn-http-auth-htpasswd-helper)"
+
+  echo "%dokku ALL=(ALL) NOPASSWD:$helper *" >"$sudoers_file"
+  chmod 0440 "$sudoers_file"
+  if command -v visudo >/dev/null 2>&1 && ! visudo -cf "$sudoers_file" >/dev/null 2>&1; then
+    rm -f "$sudoers_file"
+    dokku_log_warn "Generated an invalid sudoers file for http-auth; removed it"
+  fi
+}
 
 trigger-http-auth-install() {
   declare desc="installs the http-auth plugin"
   declare trigger="install"
 
   fn-plugin-property-setup "http-auth"
+  fn-http-auth-install-sudoers
   fn-http-auth-migrate-enabled
+  fn-http-auth-migrate-htpasswd-all
   if [[ -z "$(which mkpasswd 2>/dev/null)" ]]; then
     apt-get update && apt-get install -y whois
   fi

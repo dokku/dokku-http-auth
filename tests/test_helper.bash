@@ -26,8 +26,22 @@ http_auth_conf_path() {
   echo "/home/dokku/$1/nginx.conf.d/http-auth.conf"
 }
 
+# The htpasswd now lives under a root-owned /etc/nginx tree so the nginx worker
+# can read it; the legacy location was the app home directory.
+htpasswd_dir() {
+  echo "/etc/nginx/http-auth/$1"
+}
+
 htpasswd_path() {
+  echo "$(htpasswd_dir "$1")/htpasswd"
+}
+
+legacy_htpasswd_path() {
   echo "/home/dokku/$1/htpasswd"
+}
+
+set_htpasswd_helper() {
+  echo "/var/lib/dokku/plugins/available/http-auth/bin/set-htpasswd"
 }
 
 property_dir() {
