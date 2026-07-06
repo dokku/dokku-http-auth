@@ -166,6 +166,10 @@ dokku http-auth:report node-js-app --http-auth-enabled
 
 Whether HTTP auth is enabled for an app is tracked as an app property, and the generated nginx include (`nginx.conf.d/http-auth.conf`) is regenerated from that state on every deploy. This keeps the include in sync with the configured users and allowed IPs, and restores it automatically if it was ever left empty or out of date.
 
+### Renaming, cloning, and destroying apps
+
+Because the htpasswd file lives outside the app home directory, the plugin keeps it in sync as apps move. Renaming an app moves both the enabled/allowed-ip state and the htpasswd to the new app, cloning an app copies them, and in both cases the nginx include is re-rendered to point at the new app's htpasswd. This means a renamed or cloned app keeps working with the same credentials, with no need to disable and re-enable HTTP auth. Destroying an app removes its properties and htpasswd.
+
 ### Where the htpasswd file lives
 
 The htpasswd file is stored at `/etc/nginx/http-auth/<app>/htpasswd`. It used to live in the app home directory (`/home/dokku/<app>/htpasswd`), but on Ubuntu 21.04 and newer `/home/dokku` is created mode `750`, which the nginx worker (running as `www-data`) cannot traverse - so reading the `auth_basic_user_file` at request time failed with a `permission denied` error and a 500. `/etc/nginx` is traversable by the worker, so the file is readable there.

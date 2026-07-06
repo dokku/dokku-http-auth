@@ -58,3 +58,21 @@ teardown() {
   run http_auth_conf "$APP2"
   [[ "$output" == *"auth_basic_user_file $(htpasswd_path "$APP2");"* ]]
 }
+
+@test "(http-auth) auth credentials survive an app rename (issue #18)" {
+  APP2="$(new_app_name)"
+  dokku http-auth:enable "$APP" u1 pass1
+  # the exact hashed credentials nginx authenticates against
+  local before
+  before="$(htpasswd_contents "$APP")"
+  dokku apps:rename --skip-deploy "$APP" "$APP2"
+  # byte-identical htpasswd => the same user/password still authenticates
+  # instead of returning permission denied
+  [ "$(htpasswd_contents "$APP2")" = "$before" ]
+  assert_enabled "$APP2"
+  # the include references the new app's htpasswd with auth_basic on, not a
+  # stale path nginx cannot read
+  run http_auth_conf "$APP2"
+  [[ "$output" == *"auth_basic"* ]]
+  [[ "$output" == *"auth_basic_user_file $(htpasswd_path "$APP2");"* ]]
+}
