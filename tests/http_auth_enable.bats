@@ -57,3 +57,8 @@ teardown() {
   [[ "$output" == *"Deprecated: Please use http-auth:enable"* ]]
   assert_enabled "$APP"
 }
+
+@test "(http-auth:enable) records the enabled property" {
+  dokku http-auth:enable "$APP"
+  [ "$(http_auth_property "$APP" enabled)" = "true" ]
+}

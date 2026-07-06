@@ -111,6 +111,7 @@ cmd-http-auth-enable() {
     dokku_log_warn "Skipping user initialization"
   fi
 
+  fn-plugin-property-write "http-auth" "$APP" "enabled" "true"
   fn-http-auth-template-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
   dokku_log_verbose "Done"
@@ -134,6 +135,7 @@ cmd-http-auth-disable() {
   fi
 
   dokku_log_info1 "Disabling HTTP auth for $APP..."
+  fn-plugin-property-write "http-auth" "$APP" "enabled" "false"
   rm -f "$APP_ROOT/nginx.conf.d/http-auth.conf"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
   dokku_log_verbose "Done"
@@ -186,6 +188,7 @@ cmd-http-auth-add-allowed-ip() {
   fi
 
   fn-plugin-property-list-add "http-auth" "$APP" "allowed-ips" "$ADDRESS"
+  fn-plugin-property-write "http-auth" "$APP" "enabled" "true"
   fn-http-auth-template-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }

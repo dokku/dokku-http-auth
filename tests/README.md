@@ -1,6 +1,6 @@
 # Test suite
 
-The bats suite exercises the plugin end-to-end inside a docker-compose stack: a derived dokku image with the plugin source bind-mounted at `/plugin-src`. Tests run inside the dokku container so they call `dokku ...` directly. Apps are created with `apps:create` but never deployed - every assertion is made against the files the plugin manages (`nginx.conf.d/http-auth.conf`, `htpasswd`, and the plugin property store).
+The bats suite exercises the plugin end-to-end inside a docker-compose stack: a derived dokku image with the plugin source bind-mounted at `/plugin-src`. Tests run inside the dokku container so they call `dokku ...` directly. Apps are created with `apps:create` but never deployed - every assertion is made against the files the plugin manages (`nginx.conf.d/http-auth.conf`, `htpasswd`, and the plugin property store). Deploy-time behavior that the plugin hooks into - the `install` and `nginx-pre-reload` triggers - is exercised by invoking the plugin's trigger scripts directly (with the dokku plugin environment the CLI would normally export), so no deploy is required.
 
 ## Running the suite locally
 

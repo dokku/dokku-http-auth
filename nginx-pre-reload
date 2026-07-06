@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
+source "$PLUGIN_AVAILABLE_PATH/http-auth/internal-functions"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+trigger-http-auth-nginx-pre-reload() {
+  declare desc="regenerates the http-auth nginx include whenever nginx config is rebuilt"
+  declare trigger="nginx-pre-reload"
+  declare APP="$1"
+  local APP_ROOT="$DOKKU_ROOT/$APP"
+
+  if [[ "$(fn-http-auth-enabled "$APP")" == "true" ]]; then
+    fn-http-auth-template-config "$APP"
+  else
+    rm -f "$APP_ROOT/nginx.conf.d/http-auth.conf"
+  fi
+}
+
+trigger-http-auth-nginx-pre-reload "$@"
