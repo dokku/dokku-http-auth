@@ -1,15 +1,23 @@
 #!/usr/bin/env bash
 source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
+source "$PLUGIN_AVAILABLE_PATH/http-auth/internal-functions"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
 trigger-http-auth-post-app-rename-setup() {
-  declare desc="updates settings for new app"
+  declare desc="moves properties and htpasswd to the new app name"
   declare trigger="post-app-rename-setup"
   declare OLD_APP="$1" NEW_APP="$2"
 
   fn-plugin-property-clone "http-auth" "$OLD_APP" "$NEW_APP"
   fn-plugin-property-destroy "http-auth" "$OLD_APP"
+  if fn-http-auth-has-htpasswd "$OLD_APP"; then
+    fn-http-auth-ensure-htpasswd "$OLD_APP"
+    sudo "$(fn-http-auth-htpasswd-helper)" rename "$OLD_APP" "$NEW_APP"
+  fi
+  if [[ "$(fn-http-auth-enabled "$NEW_APP")" == "true" ]]; then
+    fn-http-auth-template-config "$NEW_APP"
+  fi
 }
 
 trigger-http-auth-post-app-rename-setup "$@"

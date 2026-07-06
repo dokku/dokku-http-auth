@@ -25,7 +25,13 @@ teardown() {
   htpasswd_contents "$APP" | grep -q '^testuser:\$6\$'
   run http_auth_conf "$APP"
   [[ "$output" == *"auth_basic"* ]]
-  [[ "$output" == *"auth_basic_user_file /home/dokku/$APP/htpasswd;"* ]]
+  [[ "$output" == *"auth_basic_user_file $(htpasswd_path "$APP");"* ]]
+}
+
+@test "(http-auth:enable) stores the htpasswd under /etc/nginx, not the app home directory" {
+  dokku http-auth:enable "$APP" testuser testpass
+  $SUDO test -f "$(htpasswd_path "$APP")"
+  $SUDO test ! -f "$(legacy_htpasswd_path "$APP")"
 }
 
 @test "(http-auth:enable) without credentials warns about skipping user initialization" {

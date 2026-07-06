@@ -138,7 +138,7 @@ dokku http-auth:show-config node-js-app username
 
 ```
 auth_basic           "Restricted";
-auth_basic_user_file /home/dokku/node-js-app/htpasswd;
+auth_basic_user_file /etc/nginx/http-auth/node-js-app/htpasswd;
 ```
 
 ### Displaying http auth reports for an app
@@ -165,6 +165,12 @@ dokku http-auth:report node-js-app --http-auth-enabled
 ### How state is persisted
 
 Whether HTTP auth is enabled for an app is tracked as an app property, and the generated nginx include (`nginx.conf.d/http-auth.conf`) is regenerated from that state on every deploy. This keeps the include in sync with the configured users and allowed IPs, and restores it automatically if it was ever left empty or out of date.
+
+### Where the htpasswd file lives
+
+The htpasswd file is stored at `/etc/nginx/http-auth/<app>/htpasswd`. It used to live in the app home directory (`/home/dokku/<app>/htpasswd`), but on Ubuntu 21.04 and newer `/home/dokku` is created mode `750`, which the nginx worker (running as `www-data`) cannot traverse - so reading the `auth_basic_user_file` at request time failed with a `permission denied` error and a 500. `/etc/nginx` is traversable by the worker, so the file is readable there.
+
+The directory is owned by `root` and dokku manages it through a small helper granted access via `/etc/sudoers.d/dokku-http-auth`, which is installed when the plugin is installed. Existing installs are migrated automatically on plugin upgrade. Because the file lives under the world-traversable `/etc/nginx`, its salted SHA-512 password hashes are readable by local users on the host; the file previously relied on `/home/dokku`'s restrictive permissions for that.
 
 ## License
 

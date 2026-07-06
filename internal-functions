@@ -10,46 +10,111 @@ fn-http-auth-enabled() {
   fn-plugin-property-get-default "http-auth" "$APP" "enabled" "false"
 }
 
+fn-http-auth-htpasswd-helper() {
+  declare desc="path to the privileged htpasswd filesystem helper"
+
+  echo "$PLUGIN_AVAILABLE_PATH/http-auth/bin/set-htpasswd"
+}
+
+fn-http-auth-htpasswd-dir() {
+  declare desc="nginx-readable directory holding an app's htpasswd"
+  declare APP="$1"
+
+  echo "/etc/nginx/http-auth/$APP"
+}
+
+fn-http-auth-htpasswd-path() {
+  declare desc="path to an app's htpasswd file"
+  declare APP="$1"
+
+  echo "$(fn-http-auth-htpasswd-dir "$APP")/htpasswd"
+}
+
+fn-http-auth-legacy-htpasswd-path() {
+  declare desc="path to the htpasswd stored in the app home directory before it was moved under /etc/nginx"
+  declare APP="$1"
+
+  echo "$DOKKU_ROOT/$APP/htpasswd"
+}
+
+fn-http-auth-current-htpasswd() {
+  declare desc="emit an app's current htpasswd, preferring the new location and falling back to the legacy one"
+  declare APP="$1"
+  local new legacy
+  new="$(fn-http-auth-htpasswd-path "$APP")"
+  legacy="$(fn-http-auth-legacy-htpasswd-path "$APP")"
+
+  if [[ -f "$new" ]]; then
+    cat "$new"
+  elif [[ -f "$legacy" ]]; then
+    cat "$legacy"
+  fi
+}
+
+fn-http-auth-has-htpasswd() {
+  declare desc="check whether an app has an htpasswd in either the new or legacy location"
+  declare APP="$1"
+
+  [[ -d "$(fn-http-auth-htpasswd-dir "$APP")" ]] || [[ -f "$(fn-http-auth-legacy-htpasswd-path "$APP")" ]]
+}
+
+fn-http-auth-set-htpasswd() {
+  declare desc="write htpasswd contents from stdin to the nginx-readable location via the privileged helper"
+  declare APP="$1"
+
+  sudo "$(fn-http-auth-htpasswd-helper)" write "$APP"
+}
+
+fn-http-auth-ensure-htpasswd() {
+  declare desc="ensure the htpasswd exists in the nginx-readable location, migrating legacy content forward"
+  declare APP="$1"
+
+  if [[ -f "$(fn-http-auth-htpasswd-path "$APP")" ]]; then
+    sudo "$(fn-http-auth-htpasswd-helper)" ensure "$APP"
+  else
+    fn-http-auth-current-htpasswd "$APP" | fn-http-auth-set-htpasswd "$APP"
+  fi
+}
+
 fn-http-auth-add-user() {
   declare APP="$1" AUTH_USERNAME="$2" AUTH_PASSWORD="$3"
-  local APP_ROOT="$DOKKU_ROOT/$APP"
+  local HASHED_PASSWORD
+  HASHED_PASSWORD="$(mkpasswd -m sha-512 "$AUTH_PASSWORD")"
 
-  touch "$APP_ROOT/htpasswd"
-  sed -i "/^${AUTH_USERNAME}:/d" "$APP_ROOT/htpasswd"
-  HASHED_PASSWORD=$(mkpasswd -m sha-512 "$AUTH_PASSWORD")
-  echo "$AUTH_USERNAME:$HASHED_PASSWORD" >>"$APP_ROOT/htpasswd"
+  {
+    fn-http-auth-current-htpasswd "$APP" | sed "/^${AUTH_USERNAME}:/d"
+    printf '%s:%s\n' "$AUTH_USERNAME" "$HASHED_PASSWORD"
+  } | fn-http-auth-set-htpasswd "$APP"
 }
 
 fn-http-auth-list-users() {
   declare APP="$1"
-  local APP_ROOT="$DOKKU_ROOT/$APP"
 
-  touch "$APP_ROOT/htpasswd"
-  while IFS="" read -r line || [[ -n "$line" ]]; do
+  fn-http-auth-current-htpasswd "$APP" | while IFS="" read -r line || [[ -n "$line" ]]; do
     printf '%s\n' "$line" | cut -d':' -f1
-  done <"$APP_ROOT/htpasswd"
+  done
 }
 
 fn-http-auth-remove-user() {
   declare APP="$1" AUTH_USERNAME="$2"
-  local APP_ROOT="$DOKKU_ROOT/$APP"
 
-  touch "$APP_ROOT/htpasswd"
-  sed -i "/^${AUTH_USERNAME}:/d" "$APP_ROOT/htpasswd"
+  fn-http-auth-current-htpasswd "$APP" | sed "/^${AUTH_USERNAME}:/d" | fn-http-auth-set-htpasswd "$APP"
 }
 
 fn-http-auth-template-config() {
   declare APP="$1"
   local APP_ROOT="$DOKKU_ROOT/$APP"
   local DOKKU_TEMPLATE="$PLUGIN_AVAILABLE_PATH/http-auth/templates/http-auth.conf"
-  local HAS_ALLOWED_USERS="$(test -s $APP_ROOT/htpasswd && echo "true")"
-  local ALLOWED_IPS
+  local HTPASSWD_PATH ALLOWED_IPS
 
+  fn-http-auth-ensure-htpasswd "$APP"
+  HTPASSWD_PATH="$(fn-http-auth-htpasswd-path "$APP")"
+  # `local` keeps the failing `test -s` (empty htpasswd) from tripping `set -e`
+  local HAS_ALLOWED_USERS="$(test -s "$HTPASSWD_PATH" && echo "true")"
   ALLOWED_IPS="$(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
   mkdir -p "$APP_ROOT/nginx.conf.d"
 
-  sigil -f "$DOKKU_TEMPLATE" APP_ROOT="$APP_ROOT" ALLOWED_IPS="$ALLOWED_IPS" HAS_ALLOWED_USERS="$HAS_ALLOWED_USERS" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
-  touch "$APP_ROOT/htpasswd"
+  sigil -f "$DOKKU_TEMPLATE" HTPASSWD_PATH="$HTPASSWD_PATH" ALLOWED_IPS="$ALLOWED_IPS" HAS_ALLOWED_USERS="$HAS_ALLOWED_USERS" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
 }
 
 fn-http-auth-migrate-enabled() {
@@ -63,4 +128,27 @@ fn-http-auth-migrate-enabled() {
       fn-plugin-property-write "http-auth" "$app" "enabled" "true"
     fi
   done
+}
+
+fn-http-auth-migrate-htpasswd-all() {
+  declare desc="relocates enabled apps' htpasswd files out of the app home directory and into the nginx-readable location"
+  local legacy app migrated=false
+
+  for legacy in "$DOKKU_ROOT"/*/htpasswd; do
+    [[ -f "$legacy" ]] || continue
+    app="$(basename "$(dirname "$legacy")")"
+    # only migrate enabled apps: disable leaves the htpasswd behind, and
+    # re-rendering the include for a disabled app would resurrect auth
+    [[ "$(fn-http-auth-enabled "$app")" == "true" ]] || continue
+    # idempotent: skip apps already moved so repeat installs do not reload nginx
+    [[ -f "$(fn-http-auth-htpasswd-path "$app")" ]] && continue
+    fn-http-auth-template-config "$app" || continue
+    migrated=true
+  done
+
+  [[ "$migrated" == "true" ]] || return 0
+  # pick up the repointed includes without waiting for a redeploy
+  if fn-nginx-vhosts-nginx-is-running 2>/dev/null; then
+    { nginx -t >/dev/null 2>&1 && fn-nginx-vhosts-nginx-init-cmd reload; } || true
+  fi
 }

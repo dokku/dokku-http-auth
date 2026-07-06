@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
+source "$PLUGIN_AVAILABLE_PATH/http-auth/internal-functions"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
 trigger-http-auth-post-delete() {
-  declare desc="destroys the http-auth properties for a given app"
+  declare desc="destroys the http-auth properties and htpasswd for a given app"
   declare trigger="post-delete"
   declare APP="$1"
 
   fn-plugin-property-destroy "http-auth" "$APP"
+  if fn-http-auth-has-htpasswd "$APP"; then
+    sudo "$(fn-http-auth-htpasswd-helper)" remove "$APP"
+  fi
 }
 
 trigger-http-auth-post-delete "$@"
