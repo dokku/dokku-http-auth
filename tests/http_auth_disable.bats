@@ -34,6 +34,12 @@ teardown() {
   assert_disabled "$APP"
 }
 
+@test "(http-auth:disable) records the disabled property" {
+  dokku http-auth:enable "$APP"
+  dokku http-auth:disable "$APP"
+  [ "$(http_auth_property "$APP" enabled)" = "false" ]
+}
+
 @test "(http-auth:disable) keeps the htpasswd file so users survive re-enable" {
   dokku http-auth:enable "$APP" u1 pass1
   dokku http-auth:disable "$APP"

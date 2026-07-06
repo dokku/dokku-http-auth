@@ -6,14 +6,8 @@ set -eo pipefail
 fn-http-auth-enabled() {
   declare desc="check if an app has http-auth enabled"
   declare APP="$1"
-  local APP_ROOT="$DOKKU_ROOT/$APP"
-  local enabled=false
 
-  if [[ -f "$APP_ROOT/nginx.conf.d/http-auth.conf" ]]; then
-    enabled=true
-  fi
-
-  echo "$enabled"
+  fn-plugin-property-get-default "http-auth" "$APP" "enabled" "false"
 }
 
 fn-http-auth-add-user() {
@@ -56,4 +50,17 @@ fn-http-auth-template-config() {
 
   sigil -f "$DOKKU_TEMPLATE" APP_ROOT="$APP_ROOT" ALLOWED_IPS="$ALLOWED_IPS" HAS_ALLOWED_USERS="$HAS_ALLOWED_USERS" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
   touch "$APP_ROOT/htpasswd"
+}
+
+fn-http-auth-migrate-enabled() {
+  declare desc="records the enabled property for apps enabled before the property existed"
+  local conf app
+
+  for conf in "$DOKKU_ROOT"/*/nginx.conf.d/http-auth.conf; do
+    [[ -f "$conf" ]] || continue
+    app="$(basename "$(dirname "$(dirname "$conf")")")"
+    if [[ -z "$(fn-plugin-property-get-default "http-auth" "$app" "enabled" "")" ]]; then
+      fn-plugin-property-write "http-auth" "$app" "enabled" "true"
+    fi
+  done
 }

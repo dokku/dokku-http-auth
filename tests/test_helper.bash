@@ -34,6 +34,38 @@ property_dir() {
   echo "/var/lib/dokku/config/http-auth/$1"
 }
 
+http_auth_property() {
+  $SUDO cat "$(property_dir "$1")/$2" 2>/dev/null || true
+}
+
+# The bats suite never deploys, so plugin triggers are invoked directly. dokku's
+# CLI normally exports the plugin environment; the bats shell does not, so set it
+# here. Paths are the standard install layout, identical in compose and native
+# modes. The plugin's own trigger scripts are run (rather than `plugn trigger`,
+# which fans out to every plugin) to keep each assertion scoped to http-auth.
+dokku_plugin_env() {
+  $SUDO env \
+    DOKKU_ROOT=/home/dokku \
+    DOKKU_LIB_ROOT=/var/lib/dokku \
+    PLUGIN_PATH=/var/lib/dokku/plugins \
+    PLUGIN_AVAILABLE_PATH=/var/lib/dokku/plugins/available \
+    PLUGIN_ENABLED_PATH=/var/lib/dokku/plugins/enabled \
+    PLUGIN_CORE_PATH=/var/lib/dokku/core-plugins \
+    PLUGIN_CORE_AVAILABLE_PATH=/var/lib/dokku/core-plugins/available \
+    "$@"
+}
+
+# Re-render the app's nginx include the way an nginx rebuild would.
+fire_nginx_pre_reload() {
+  dokku_plugin_env /var/lib/dokku/plugins/available/http-auth/nginx-pre-reload "$1" "" "" >/dev/null
+}
+
+# Re-run the plugin's install trigger the way a `dokku plugin:install` upgrade
+# does; used to exercise the http-auth enabled-state migration.
+fire_install() {
+  dokku_plugin_env /var/lib/dokku/plugins/available/http-auth/install >/dev/null
+}
+
 http_auth_conf() {
   $SUDO cat "$(http_auth_conf_path "$1")"
 }

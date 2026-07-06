@@ -162,6 +162,10 @@ You can pass flags which will output only the value of the specific information 
 dokku http-auth:report node-js-app --http-auth-enabled
 ```
 
+### How state is persisted
+
+Whether HTTP auth is enabled for an app is tracked as an app property, and the generated nginx include (`nginx.conf.d/http-auth.conf`) is regenerated from that state on every deploy. This keeps the include in sync with the configured users and allowed IPs, and restores it automatically if it was ever left empty or out of date.
+
 ## License
 
 This plugin is released under the MIT license. See the file [LICENSE](LICENSE).

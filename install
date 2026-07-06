@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
+source "$PLUGIN_AVAILABLE_PATH/http-auth/internal-functions"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
@@ -8,6 +9,7 @@ trigger-http-auth-install() {
   declare trigger="install"
 
   fn-plugin-property-setup "http-auth"
+  fn-http-auth-migrate-enabled
   if [[ -z "$(which mkpasswd 2>/dev/null)" ]]; then
     apt-get update && apt-get install -y whois
   fi
