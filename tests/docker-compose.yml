@@ -1,0 +1,22 @@
+# Explicit project name: without it, compose derives the project from this
+# file's parent directory ("tests"), colliding with any other repo that also
+# keeps its compose file in tests/.
+name: hatest
+
+services:
+  dokku:
+    build:
+      context: ./dokku
+      args:
+        DOKKU_VERSION: ${DOKKU_VERSION:-latest}
+    container_name: hatest-dokku
+    restart: unless-stopped
+    profiles: ["compose-mode"]
+    environment:
+      - DOKKU_HOSTNAME=dokku.test
+      - DOKKU_HOST_ROOT=${HATEST_HOST_DIR}/home/dokku
+      - DOKKU_LIB_HOST_ROOT=${HATEST_HOST_DIR}/var/lib/dokku
+    volumes:
+      - ${HATEST_HOST_DIR}:/mnt/dokku
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../:/plugin-src:ro

@@ -1,67 +1,55 @@
 #!/usr/bin/env bash
-export DOKKU_QUIET_OUTPUT=1
-export DOKKU_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/dokku"
-export DOKKU_VERSION=${DOKKU_VERSION:-"master"}
-export PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/bin:$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/dokku:$PATH"
-export PLUGIN_PATH="$DOKKU_ROOT/plugins"
-export PLUGIN_ENABLED_PATH="$PLUGIN_PATH"
-export PLUGIN_AVAILABLE_PATH="$PLUGIN_PATH"
-export PLUGIN_CORE_AVAILABLE_PATH="$PLUGIN_PATH"
-export PLUGIN_DATA_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures"
+# Helpers for the dokku-http-auth bats suite. Sourced by every *.bats file.
 
-mkdir -p "$PLUGIN_DATA_ROOT"
-rm -rf "${PLUGIN_DATA_ROOT:?}"/*
+# `SUDO` is empty in compose mode (bats already runs as root in the dokku
+# container) and `sudo` in native mode (files under /home/dokku and
+# /var/lib/dokku need elevation to read).
+SUDO="${SUDO:-}"
 
-flunk() {
-  {
-    if [ "$#" -eq 0 ]; then
-      cat -
-    else
-      echo "$*"
-    fi
-  }
-  return 1
+new_app_name() {
+  echo "hatest-${BATS_TEST_NUMBER:-0}-$(date +%s)-${RANDOM}"
 }
 
-assert_equal() {
-  if [ "$1" != "$2" ]; then
-    {
-      echo "expected: $1"
-      echo "actual:   $2"
-    } | flunk
+create_app() {
+  local app="$1"
+  dokku apps:create "$app"
+}
+
+cleanup_app() {
+  local app="$1"
+  if dokku apps:exists "$app" >/dev/null 2>&1; then
+    dokku --force apps:destroy "$app" >/dev/null 2>&1 || true
   fi
 }
 
-assert_exit_status() {
-  assert_equal "$status" "$1"
+http_auth_conf_path() {
+  echo "/home/dokku/$1/nginx.conf.d/http-auth.conf"
 }
 
-assert_success() {
-  if [ "$status" -ne 0 ]; then
-    flunk "command failed with exit status $status"
-  elif [ "$#" -gt 0 ]; then
-    assert_output "$1"
-  fi
+htpasswd_path() {
+  echo "/home/dokku/$1/htpasswd"
 }
 
-assert_exists() {
-  if [ ! -f "$1" ]; then
-    flunk "expected file to exist: $1"
-  fi
+property_dir() {
+  echo "/var/lib/dokku/config/http-auth/$1"
 }
 
-assert_contains() {
-  if [[ "$1" != *"$2"* ]]; then
-    flunk "expected $2 to be in: $1"
-  fi
+http_auth_conf() {
+  $SUDO cat "$(http_auth_conf_path "$1")"
 }
 
-assert_output() {
-  local expected
-  if [ $# -eq 0 ]; then
-    expected="$(cat -)"
-  else
-    expected="$1"
-  fi
-  assert_equal "$expected" "$output"
+htpasswd_contents() {
+  $SUDO cat "$(htpasswd_path "$1")"
+}
+
+http_auth_enabled() {
+  dokku http-auth:report "$1" --http-auth-enabled
+}
+
+assert_enabled() {
+  [ "$(http_auth_enabled "$1")" = "true" ]
+}
+
+assert_disabled() {
+  [ "$(http_auth_enabled "$1")" = "false" ]
 }
