@@ -105,13 +105,13 @@ cmd-http-auth-enable() {
   fi
 
   dokku_log_info1 "Enabling HTTP auth for $APP..."
-  fn-http-auth-template-config "$APP"
   if [[ -n "$AUTH_USERNAME" ]] && [[ "$AUTH_PASSWORD" ]]; then
     fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
   else
     dokku_log_warn "Skipping user initialization"
   fi
 
+  fn-http-auth-template-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
   dokku_log_verbose "Done"
 }
@@ -157,12 +157,13 @@ cmd-http-auth-add-user() {
   fi
 
   if [[ -z "$AUTH_PASSWORD" ]]; then
-    dokku_log_fail "Missing username"
+    dokku_log_fail "Missing password"
     return 1
   fi
 
   dokku_log_info1 "Adding $AUTH_USERNAME to basic auth list"
   fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
+  fn-http-auth-template-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
@@ -208,6 +209,7 @@ cmd-http-auth-remove-user() {
 
   dokku_log_info1 "Removing $AUTH_USERNAME from basic auth list"
   fn-http-auth-remove-user "$APP" "$AUTH_USERNAME"
+  fn-http-auth-template-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 

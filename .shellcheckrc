@@ -1,0 +1,8 @@
+# SC1091: source files outside the lint set (dokku core plugins) cannot be followed
+disable=SC1091
+# SC2034: `declare desc=...` / `declare cmd=...` are introspected by dokku for help output
+disable=SC2034
+# SC2086: intentional word-splitting matching dokku core conventions
+disable=SC2086
+# SC2155: declare-and-assign is the established style here
+disable=SC2155
