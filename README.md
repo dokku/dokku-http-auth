@@ -227,6 +227,18 @@ You can pass flags which will output only the value of the specific information 
 dokku http-auth:report node-js-app --http-auth-enabled
 ```
 
+The report can also be emitted as JSON for programmatic use by passing `--format json`:
+
+```shell
+# dokku http-auth:report node-js-app --format json
+```
+
+```json
+{"enabled":"true","allowed-ips":"127.0.0.1","domains":"secure.example.com","users":"root username"}
+```
+
+All values are JSON strings, and list values (`allowed-ips`, `domains`, `users`) are space-joined, matching the human-readable rows. The `--format json` flag cannot be combined with an individual info flag. Passing `--global` reports global properties only; since http-auth has no global properties, `http-auth:report --global --format json` returns `{}`.
+
 ### How state is persisted
 
 Whether HTTP auth is enabled for an app is tracked as an app property, and the generated nginx include (`nginx.conf.d/http-auth.conf`) is regenerated from that state on every deploy. This keeps the include in sync with the configured users and allowed IPs, and restores it automatically if it was ever left empty or out of date.

@@ -10,7 +10,10 @@ cmd-http-auth-report() {
   declare desc="displays a http-auth report for one or more apps"
   declare cmd="http-auth:report"
   [[ "$1" == "$cmd" ]] && shift 1
-  declare APP="$1" INFO_FLAG="$2"
+  fn-http-auth-report-parse-args "$@"
+  set -- "${REPORT_ARGS[@]}"
+
+  declare APP="${1:-}" INFO_FLAG="${2:-}"
   local INSTALLED_APPS
   INSTALLED_APPS=$(dokku_apps)
 
@@ -19,25 +22,33 @@ cmd-http-auth-report() {
     APP=""
   fi
 
+  if [[ "$REPORT_IS_GLOBAL" == "true" ]]; then
+    APP="--global"
+  fi
+
   if [[ -z "$APP" ]] && [[ -z "$INFO_FLAG" ]]; then
     INFO_FLAG="true"
   fi
 
-  if [[ -z "$APP" ]]; then
+  if [[ "$APP" == "--global" ]]; then
+    cmd-http-auth-report-single "$APP" "$INFO_FLAG" "$REPORT_FORMAT"
+  elif [[ -z "$APP" ]]; then
     for app in $INSTALLED_APPS; do
-      cmd-http-auth-report-single "$app" "$INFO_FLAG" | tee || true
+      cmd-http-auth-report-single "$app" "$INFO_FLAG" "$REPORT_FORMAT" | tee || true
     done
   else
-    cmd-http-auth-report-single "$APP" "$INFO_FLAG"
+    cmd-http-auth-report-single "$APP" "$INFO_FLAG" "$REPORT_FORMAT"
   fi
 }
 
 cmd-http-auth-report-single() {
-  declare APP="$1" INFO_FLAG="$2"
+  declare APP="$1" INFO_FLAG="$2" FORMAT="${3:-stdout}"
   if [[ "$INFO_FLAG" == "true" ]]; then
     INFO_FLAG=""
   fi
-  verify_app_name "$APP"
+  if [[ "$APP" != "--global" ]]; then
+    verify_app_name "$APP"
+  fi
   local flag_map=(
     "--http-auth-enabled: $(fn-http-auth-enabled "$APP")"
     "--http-auth-allowed-ips: $(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
@@ -45,8 +56,23 @@ cmd-http-auth-report-single() {
     "--http-auth-users: $(fn-http-auth-list-users "$APP" | xargs)"
   )
 
+  if [[ "$APP" == "--global" ]]; then
+    fn-http-auth-report-filter-global flag_map
+  fi
+
+  fn-http-auth-report-validate-format "$FORMAT" "$INFO_FLAG"
+
+  if [[ "$FORMAT" == "json" ]]; then
+    fn-http-auth-report-emit-json flag_map
+    return
+  fi
+
   if [[ -z "$INFO_FLAG" ]]; then
-    dokku_log_info2_quiet "${APP} http-auth information"
+    if [[ "$APP" == "--global" ]]; then
+      dokku_log_info2_quiet "global http-auth information"
+    else
+      dokku_log_info2_quiet "${APP} http-auth information"
+    fi
     for flag in "${flag_map[@]}"; do
       key="$(echo "${flag#--}" | cut -f1 -d' ' | tr - ' ')"
       dokku_log_verbose "$(printf "%-30s %-25s" "${key^}" "${flag#*: }")"
