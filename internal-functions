@@ -105,16 +105,57 @@ fn-http-auth-template-config() {
   declare APP="$1"
   local APP_ROOT="$DOKKU_ROOT/$APP"
   local DOKKU_TEMPLATE="$PLUGIN_AVAILABLE_PATH/http-auth/templates/http-auth.conf"
-  local HTPASSWD_PATH ALLOWED_IPS
+  local HTPASSWD_PATH ALLOWED_IPS AUTH_DOMAINS
 
   fn-http-auth-ensure-htpasswd "$APP"
   HTPASSWD_PATH="$(fn-http-auth-htpasswd-path "$APP")"
   # `local` keeps the failing `test -s` (empty htpasswd) from tripping `set -e`
   local HAS_ALLOWED_USERS="$(test -s "$HTPASSWD_PATH" && echo "true")"
   ALLOWED_IPS="$(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
+  AUTH_DOMAINS="$(fn-plugin-property-list-get "http-auth" "$APP" "auth-domains" | xargs)"
   mkdir -p "$APP_ROOT/nginx.conf.d"
 
-  sigil -f "$DOKKU_TEMPLATE" HTPASSWD_PATH="$HTPASSWD_PATH" ALLOWED_IPS="$ALLOWED_IPS" HAS_ALLOWED_USERS="$HAS_ALLOWED_USERS" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
+  sigil -f "$DOKKU_TEMPLATE" HTPASSWD_PATH="$HTPASSWD_PATH" ALLOWED_IPS="$ALLOWED_IPS" AUTH_DOMAINS="$AUTH_DOMAINS" HAS_ALLOWED_USERS="$HAS_ALLOWED_USERS" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
+}
+
+fn-http-auth-app-vhosts() {
+  declare desc="list the nginx vhosts currently attached to an app"
+  declare APP="$1"
+
+  dokku domains:report "$APP" --domains-app-vhosts 2>/dev/null || true
+}
+
+fn-http-auth-domain-attached() {
+  declare desc="check whether a domain is one of the app's nginx vhosts"
+  declare APP="$1" DOMAIN="$2"
+  local vhost
+
+  for vhost in $(fn-http-auth-app-vhosts "$APP"); do
+    [[ "$vhost" == "$DOMAIN" ]] && return 0
+  done
+
+  return 1
+}
+
+fn-http-auth-normalize-domain() {
+  declare desc="lowercase a domain so it matches nginx's lowercased \$host"
+  declare DOMAIN="$1"
+
+  echo "$DOMAIN" | tr '[:upper:]' '[:lower:]'
+}
+
+fn-http-auth-has-allowed-ips() {
+  declare desc="check whether an app has any allowed ips configured"
+  declare APP="$1"
+
+  [[ -n "$(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)" ]]
+}
+
+fn-http-auth-has-auth-domains() {
+  declare desc="check whether an app restricts auth to specific domains"
+  declare APP="$1"
+
+  [[ -n "$(fn-plugin-property-list-get "http-auth" "$APP" "auth-domains" | xargs)" ]]
 }
 
 fn-http-auth-migrate-enabled() {

@@ -19,11 +19,14 @@ $ dokku plugin:install https://github.com/dokku/dokku-http-auth.git
 $ dokku http-auth:help
     http-auth:add-user <app> <user> <password>  Add basic auth user to app
     http-auth:add-allowed-ip <app> <address>    Add allowed IP to basic auth bypass for an app
+    http-auth:add-domain <app> <domain>         Restrict basic auth to the given domain (empty list = all domains)
     http-auth:disable <app>                     Disable HTTP auth for app
     http-auth:enable <app> <user> <password>    Enable HTTP auth for app
     http-auth:remove-allowed-ip <app> <address> Remove allowed IP from basic auth bypass for an app
+    http-auth:remove-domain <app> <domain>      Stop restricting basic auth to the given domain
     http-auth:remove-user <app> <user>          Remove basic auth user from app
     http-auth:report [<app>] [<flag>]           Displays an http-auth report for one or more apps
+    http-auth:set-domains <app> [<domain>...]   Replace the set of domains basic auth is restricted to
     http-auth:show-config <app>                 Display app http-auth config
 ```
 
@@ -128,6 +131,53 @@ dokku http-auth:remove-allowed-ip node-js-app 127.0.0.1
        Reloading nginx
 ```
 
+### Restricting auth to specific domains
+
+By default HTTP auth applies to every domain attached to an app. When an app serves
+multiple domains you can restrict the password prompt to a subset of them, leaving the
+others public.
+
+Add a domain to the auth list with `http-auth:add-domain`. The domain must already be
+attached to the app (see `dokku domains:report`); an unattached domain is rejected. Adding
+a domain enables HTTP auth for the app if it was not already enabled.
+
+```shell
+dokku http-auth:add-domain node-js-app secure.example.com
+```
+
+```
+-----> Adding secure.example.com to auth domain list
+-----> Configuring node-js-app.dokku.me...(using built-in template)
+-----> Creating https nginx.conf
+       Reloading nginx
+```
+
+While the auth domain list is non-empty, only the listed domains present the password
+prompt; every other domain of the app is served without auth. When the list is empty (the
+default) auth applies to all of the app's domains, exactly as before.
+
+Remove a single domain with `http-auth:remove-domain`:
+
+```shell
+dokku http-auth:remove-domain node-js-app secure.example.com
+```
+
+Replace the entire list in one call with `http-auth:set-domains`. Passing no domains clears
+the list, returning the app to app-wide auth:
+
+```shell
+# restrict auth to exactly these two domains
+dokku http-auth:set-domains node-js-app secure.example.com admin.example.com
+
+# clear the list -> auth applies to all domains again
+dokku http-auth:set-domains node-js-app
+```
+
+> **Note:** allowed IPs (`http-auth:add-allowed-ip`) apply to **all** of an app's domains and
+> cannot be scoped per-domain. If you combine allowed IPs with a domain restriction, a domain
+> that is not in the auth list will still reject clients whose IP is not allowed (HTTP 403)
+> rather than being fully public. The plugin prints a warning when the two features are combined.
+
 ### Viewing http auth config
 
 The nginx `http-auth.conf` file can be viewed via the `http-auth:show-config` command. This command will _not_ output the `htaccess` file.
@@ -138,6 +188,17 @@ dokku http-auth:show-config node-js-app username
 
 ```
 auth_basic           "Restricted";
+auth_basic_user_file /etc/nginx/http-auth/node-js-app/htpasswd;
+```
+
+When auth is restricted to specific domains, the realm is gated on the request host instead:
+
+```
+set $dokku_auth_realm off;
+if ($host = "secure.example.com") {
+  set $dokku_auth_realm "Restricted";
+}
+auth_basic           $dokku_auth_realm;
 auth_basic_user_file /etc/nginx/http-auth/node-js-app/htpasswd;
 ```
 
@@ -153,8 +214,12 @@ You can get a report about the app's http-auth status using the `http-auth:repor
 =====> node-js-app http-auth information
        Http auth enabled:             true
        Http auth allowed ips:         127.0.0.1
+       Http auth domains:             secure.example.com
        Http auth users:               root username
 ```
+
+The `Http auth domains` row (and the `--http-auth-domains` flag) lists the domains auth is
+restricted to; an empty value means auth applies to all of the app's domains.
 
 You can pass flags which will output only the value of the specific information you want. For example:
 
@@ -168,7 +233,7 @@ Whether HTTP auth is enabled for an app is tracked as an app property, and the g
 
 ### Renaming, cloning, and destroying apps
 
-Because the htpasswd file lives outside the app home directory, the plugin keeps it in sync as apps move. Renaming an app moves both the enabled/allowed-ip state and the htpasswd to the new app, cloning an app copies them, and in both cases the nginx include is re-rendered to point at the new app's htpasswd. This means a renamed or cloned app keeps working with the same credentials, with no need to disable and re-enable HTTP auth. Destroying an app removes its properties and htpasswd.
+Because the htpasswd file lives outside the app home directory, the plugin keeps it in sync as apps move. Renaming an app moves the enabled state, allowed-ip and auth-domain lists, and the htpasswd to the new app, cloning an app copies them, and in both cases the nginx include is re-rendered to point at the new app's htpasswd. This means a renamed or cloned app keeps working with the same credentials, with no need to disable and re-enable HTTP auth. Destroying an app removes its properties and htpasswd.
 
 ### Where the htpasswd file lives
 

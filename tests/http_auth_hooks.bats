@@ -42,6 +42,20 @@ teardown() {
   [[ "$output" == *"auth_basic_user_file $(htpasswd_path "$APP2");"* ]]
 }
 
+@test "(http-auth) post-app-clone-setup clones auth domains to the new app" {
+  APP2="$(new_app_name)"
+  dokku domains:add "$APP" a.example.com >/dev/null
+  dokku http-auth:enable "$APP" u1 pass1
+  dokku http-auth:add-domain "$APP" a.example.com
+  dokku apps:clone --skip-deploy "$APP" "$APP2"
+  run dokku http-auth:report "$APP2" --http-auth-domains
+  [ "$status" -eq 0 ]
+  [ "$output" = "a.example.com" ]
+  # the include re-renders with the host-gated block for the cloned app
+  run http_auth_conf "$APP2"
+  [[ "$output" == *'if ($host = "a.example.com") {'* ]]
+}
+
 @test "(http-auth) post-app-rename-setup moves properties and htpasswd to the new name" {
   APP2="$(new_app_name)"
   dokku http-auth:enable "$APP" u1 pass1

@@ -17,6 +17,7 @@ teardown() {
   [[ "$output" == *"$APP http-auth information"* ]]
   [[ "$output" == *"Http auth enabled"* ]]
   [[ "$output" == *"Http auth allowed ips"* ]]
+  [[ "$output" == *"Http auth domains"* ]]
   [[ "$output" == *"Http auth users"* ]]
 }
 
