@@ -73,3 +73,48 @@ teardown() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"does not exist"* ]]
 }
+
+@test "(http-auth:report) --format json emits a json object" {
+  run dokku http-auth:report "$APP" --format json
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"enabled":"false"'* ]]
+  [[ "$output" == *'"allowed-ips":""'* ]]
+  [[ "$output" == *'"domains":""'* ]]
+  [[ "$output" == *'"users":""'* ]]
+
+  dokku http-auth:enable "$APP"
+  dokku http-auth:add-allowed-ip "$APP" 10.0.0.1
+
+  run dokku http-auth:report "$APP" --format json
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"enabled":"true"'* ]]
+  [[ "$output" == *'"allowed-ips":"10.0.0.1"'* ]]
+}
+
+@test "(http-auth:report) --format json rejects an info flag" {
+  run dokku http-auth:report "$APP" --format json --http-auth-enabled
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--format flag cannot be specified when specifying an info flag"* ]]
+}
+
+@test "(http-auth:report) without an app emits one json object per app" {
+  run dokku http-auth:report --format json
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"enabled":"false"'* ]]
+
+  # every emitted line is a valid JSON object
+  run /bin/bash -c "dokku http-auth:report --format json | jq -e . >/dev/null"
+  [ "$status" -eq 0 ]
+}
+
+@test "(http-auth:report) --global --format json returns an empty object" {
+  run dokku http-auth:report --global --format json
+  [ "$status" -eq 0 ]
+  [ "$output" = "{}" ]
+}
+
+@test "(dokku report) includes an http-auth section" {
+  run dokku report "$APP"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"http-auth information"* ]]
+}
