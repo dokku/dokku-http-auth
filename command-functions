@@ -41,6 +41,7 @@ cmd-http-auth-report-single() {
   local flag_map=(
     "--http-auth-enabled: $(fn-http-auth-enabled "$APP")"
     "--http-auth-allowed-ips: $(fn-plugin-property-list-get "http-auth" "$APP" "allowed-ips" | xargs)"
+    "--http-auth-domains: $(fn-plugin-property-list-get "http-auth" "$APP" "auth-domains" | xargs)"
     "--http-auth-users: $(fn-http-auth-list-users "$APP" | xargs)"
   )
 
@@ -60,7 +61,7 @@ cmd-http-auth-report-single() {
         size="${#value}"
         if [[ "$size" -ne 0 ]]; then
           echo "$value" && match=true && value_exists=true
-        elif [[ "$INFO_FLAG" == "--http-auth-allowed-ips" ]]; then
+        elif [[ "$INFO_FLAG" == "--http-auth-allowed-ips" ]] || [[ "$INFO_FLAG" == "--http-auth-domains" ]]; then
           match=true && value_exists=true
         else
           match=true
@@ -189,6 +190,9 @@ cmd-http-auth-add-allowed-ip() {
 
   fn-plugin-property-list-add "http-auth" "$APP" "allowed-ips" "$ADDRESS"
   fn-plugin-property-write "http-auth" "$APP" "enabled" "true"
+  if fn-http-auth-has-auth-domains "$APP"; then
+    fn-http-auth-warn-ip-domain-overlap
+  fi
   fn-http-auth-template-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
@@ -231,6 +235,103 @@ cmd-http-auth-remove-allowed-ip() {
 
   dokku_log_info1 "Removing $ADDRESS from allowed ip list"
   fn-plugin-property-list-remove "http-auth" "$APP" "allowed-ips" "$ADDRESS"
+  fn-http-auth-template-config "$APP"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
+}
+
+fn-http-auth-warn-ip-domain-overlap() {
+  declare desc="warn that allowed-ips remain app-wide even when auth is scoped to domains"
+
+  dokku_log_warn "allowed-ips apply to all domains; domains without auth will still reject non-allowed IPs with 403"
+}
+
+cmd-http-auth-add-domain() {
+  declare desc="restrict basic auth to a specific domain for an app"
+  declare cmd="http-auth:add-domain"
+  [[ "$1" == "$cmd" ]] && shift 1
+  declare APP="$1" DOMAIN="$2"
+
+  if [[ -z "$DOMAIN" ]]; then
+    dokku_log_fail "Missing domain"
+    return 1
+  fi
+
+  verify_app_name "$APP"
+  DOMAIN="$(fn-http-auth-normalize-domain "$DOMAIN")"
+  if ! fn-http-auth-domain-attached "$APP" "$DOMAIN"; then
+    dokku_log_fail "$DOMAIN is not a domain of $APP"
+  fi
+
+  dokku_log_info1 "Adding $DOMAIN to auth domain list"
+  if fn-plugin-property-list-get-by-value "http-auth" "$APP" "auth-domains" "$DOMAIN" 2>/dev/null; then
+    return
+  fi
+
+  fn-plugin-property-list-add "http-auth" "$APP" "auth-domains" "$DOMAIN"
+  fn-plugin-property-write "http-auth" "$APP" "enabled" "true"
+  if fn-http-auth-has-allowed-ips "$APP"; then
+    fn-http-auth-warn-ip-domain-overlap
+  fi
+  fn-http-auth-template-config "$APP"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
+}
+
+cmd-http-auth-remove-domain() {
+  declare desc="stop restricting basic auth to a specific domain for an app"
+  declare cmd="http-auth:remove-domain"
+  [[ "$1" == "$cmd" ]] && shift 1
+  declare APP="$1" DOMAIN="$2"
+
+  verify_app_name "$APP"
+
+  if [[ -z "$DOMAIN" ]]; then
+    dokku_log_fail "Missing domain"
+    return 1
+  fi
+
+  DOMAIN="$(fn-http-auth-normalize-domain "$DOMAIN")"
+  dokku_log_info1 "Removing $DOMAIN from auth domain list"
+  fn-plugin-property-list-remove "http-auth" "$APP" "auth-domains" "$DOMAIN"
+  fn-http-auth-template-config "$APP"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
+}
+
+cmd-http-auth-set-domains() {
+  declare desc="replace the set of domains basic auth is restricted to for an app"
+  declare cmd="http-auth:set-domains"
+  [[ "$1" == "$cmd" ]] && shift 1
+  declare APP="$1"
+
+  verify_app_name "$APP"
+  shift 1
+
+  local domain existing
+  local domains=()
+  # validate every domain before mutating so a bad domain never leaves a half-set list
+  for domain in "$@"; do
+    domain="$(fn-http-auth-normalize-domain "$domain")"
+    if ! fn-http-auth-domain-attached "$APP" "$domain"; then
+      dokku_log_fail "$domain is not a domain of $APP"
+    fi
+    domains+=("$domain")
+  done
+
+  dokku_log_info1 "Setting auth domain list for $APP"
+  while IFS="" read -r existing || [[ -n "$existing" ]]; do
+    [[ -n "$existing" ]] && fn-plugin-property-list-remove "http-auth" "$APP" "auth-domains" "$existing"
+  done < <(fn-plugin-property-list-get "http-auth" "$APP" "auth-domains")
+
+  for domain in "${domains[@]}"; do
+    fn-plugin-property-list-add "http-auth" "$APP" "auth-domains" "$domain"
+  done
+
+  if [[ "${#domains[@]}" -gt 0 ]]; then
+    fn-plugin-property-write "http-auth" "$APP" "enabled" "true"
+    if fn-http-auth-has-allowed-ips "$APP"; then
+      fn-http-auth-warn-ip-domain-overlap
+    fi
+  fi
+
   fn-http-auth-template-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }

@@ -101,3 +101,11 @@ teardown() {
   run http_auth_conf "$APP"
   [[ "$output" == *"allow 10.0.0.5;"* ]]
 }
+
+@test "(http-auth:add-allowed-ip) warns when the app restricts auth to domains" {
+  dokku domains:add "$APP" a.example.com >/dev/null
+  dokku http-auth:add-domain "$APP" a.example.com
+  run dokku http-auth:add-allowed-ip "$APP" 10.0.0.6
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"allowed-ips apply to all domains"* ]]
+}

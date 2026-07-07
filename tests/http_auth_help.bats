@@ -11,7 +11,7 @@ load 'test_helper'
 @test "(http-auth:help) lists every subcommand" {
   run dokku http-auth:help
   [ "$status" -eq 0 ]
-  for subcommand in add-allowed-ip add-user disable enable remove-allowed-ip remove-user report show-config; do
+  for subcommand in add-allowed-ip add-domain add-user disable enable remove-allowed-ip remove-domain remove-user report set-domains show-config; do
     [[ "$output" == *"http-auth:${subcommand}"* ]]
   done
 }
