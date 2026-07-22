@@ -32,6 +32,8 @@ fn-help-content() {
     http-auth:add-domain <app> <domain>, restrict basic auth to the given domain (empty list = all domains)
     http-auth:disable <app>, Disable HTTP auth for app
     http-auth:enable <app> [<user>] [<password>], Enable HTTP auth for app
+    http-auth:export-users <app>, Export basic auth users as htpasswd entries to stdout
+    http-auth:import-users <app> [--replace], Import basic auth users from stdin (htpasswd entries)
     http-auth:remove-allowed-ip <app> <address>, remove allowed ip from basic auth bypass for an app
     http-auth:remove-domain <app> <domain>, stop restricting basic auth to the given domain
     http-auth:remove-user <app> <user>, Remove basic auth user from app
