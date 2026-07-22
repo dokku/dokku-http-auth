@@ -246,6 +246,82 @@ cmd-http-auth-remove-user() {
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
+cmd-http-auth-export-users() {
+  declare desc="export http auth users as htpasswd entries to stdout"
+  declare cmd="http-auth:export-users"
+  [[ "$1" == "$cmd" ]] && shift 1
+  declare APP="$1"
+
+  verify_app_name "$APP"
+
+  # deliberately not gated on the enabled state: disabling an app leaves its
+  # htpasswd in place, and the whole point is to read those credentials back
+  # out for migration regardless of whether auth is currently serving
+  local CONTENTS
+  CONTENTS="$(fn-http-auth-current-htpasswd "$APP")"
+  if [[ -z "$CONTENTS" ]]; then
+    dokku_log_warn "No http-auth users set for $APP; nothing to export"
+    return 0
+  fi
+
+  # only the htpasswd entries reach stdout (no dokku_log_info*, which prints
+  # there) so the output can be piped straight into http-auth:import-users
+  printf '%s\n' "$CONTENTS"
+}
+
+cmd-http-auth-import-users() {
+  declare desc="import http auth users from stdin as htpasswd entries"
+  declare cmd="http-auth:import-users"
+  [[ "$1" == "$cmd" ]] && shift 1
+
+  local REPLACE=false
+  local positional=()
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --replace)
+        REPLACE=true
+        ;;
+      *)
+        positional+=("$arg")
+        ;;
+    esac
+  done
+  set -- "${positional[@]}"
+  declare APP="$1"
+
+  verify_app_name "$APP"
+
+  if [[ -t 0 ]]; then
+    dokku_log_fail "htpasswd entries (user:hash) expected on stdin"
+  fi
+
+  # validate everything before writing anything so a malformed line never
+  # leaves a half-written htpasswd; the here-string keeps the loop in the
+  # current shell so dokku_log_fail's exit propagates out of the command
+  local INPUT entries=() line
+  INPUT="$(cat)"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+    if [[ ! "$line" =~ ^[^:]+:.+$ ]]; then
+      dokku_log_fail "Invalid htpasswd entry: $line"
+    fi
+    entries+=("$line")
+  done <<< "$INPUT"
+
+  if [[ "${#entries[@]}" -eq 0 ]]; then
+    dokku_log_fail "No htpasswd entries provided on stdin"
+  fi
+
+  dokku_log_info1 "Importing ${#entries[@]} http-auth user(s) for $APP"
+  printf '%s\n' "${entries[@]}" | fn-http-auth-import-users "$APP" "$REPLACE"
+  # adding auth config turns auth on, matching add-allowed-ip/add-domain, and
+  # guarantees the template render below never resurrects auth on a disabled app
+  fn-plugin-property-write "http-auth" "$APP" "enabled" "true"
+  fn-http-auth-template-config "$APP"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
+}
+
 cmd-http-auth-remove-allowed-ip() {
   declare desc="remove allowed ip from basic auth bypass for an app"
   declare cmd="http-auth:remove-allowed-ip"

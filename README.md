@@ -22,6 +22,8 @@ $ dokku http-auth:help
     http-auth:add-domain <app> <domain>         Restrict basic auth to the given domain (empty list = all domains)
     http-auth:disable <app>                     Disable HTTP auth for app
     http-auth:enable <app> <user> <password>    Enable HTTP auth for app
+    http-auth:export-users <app>                Export basic auth users as htpasswd entries to stdout
+    http-auth:import-users <app> [--replace]    Import basic auth users from stdin (htpasswd entries)
     http-auth:remove-allowed-ip <app> <address> Remove allowed IP from basic auth bypass for an app
     http-auth:remove-domain <app> <domain>      Stop restricting basic auth to the given domain
     http-auth:remove-user <app> <user>          Remove basic auth user from app
@@ -95,6 +97,43 @@ dokku http-auth:remove-user node-js-app username
 -----> Creating https nginx.conf
        Enabling HSTS
        Reloading nginx
+```
+
+### Exporting users
+
+The `http-auth:export-users` command streams an app's basic auth credentials to stdout as htpasswd `user:hash` entries. This is the inverse of `http-auth:add-user`: because the entries carry the stored SHA-512 hashes (never the plaintext passwords), they can be saved or re-applied to another app or server without knowing the original passwords. Only the entries are written to stdout, so the output can be redirected to a file or piped straight into `http-auth:import-users`.
+
+```shell
+# dokku http-auth:export-users node-js-app > users.htpasswd            # Server side
+$ ssh dokku@server http-auth:export-users node-js-app > users.htpasswd # Client side
+```
+
+```
+username:$6$Xm3kx1s9$Zq8...
+```
+
+Export works even when auth is disabled, since the credentials persist. If the app has no users, the command still exits successfully but writes nothing to stdout and prints a notice to stderr.
+
+### Importing users
+
+The `http-auth:import-users` command reads htpasswd `user:hash` entries from stdin and applies them to an app, enabling HTTP auth if it was not already enabled. By default it upserts: each imported user is added or has its password updated by username, and any other existing users are left in place. Pass `--replace` to make the app's users exactly the imported set instead.
+
+```shell
+dokku http-auth:import-users node-js-app < users.htpasswd
+```
+
+```
+-----> Importing 2 http-auth user(s) for node-js-app
+-----> Configuring node-js-app.dokku.me...(using built-in template)
+-----> Creating https nginx.conf
+       Enabling HSTS
+       Reloading nginx
+```
+
+Paired with `http-auth:export-users`, this moves credentials between hosts without ever exposing the plaintext passwords:
+
+```shell
+ssh dokku@old-server http-auth:export-users node-js-app | ssh dokku@new-server http-auth:import-users node-js-app
 ```
 
 ### Limiting access to specific IP Addresses

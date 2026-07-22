@@ -101,6 +101,35 @@ fn-http-auth-remove-user() {
   fn-http-auth-current-htpasswd "$APP" | sed "/^${AUTH_USERNAME}:/d" | fn-http-auth-set-htpasswd "$APP"
 }
 
+fn-http-auth-import-users() {
+  declare desc="write imported user:hash entries from stdin to the htpasswd, upserting by default or replacing existing users"
+  declare APP="$1" REPLACE="${2:-false}"
+  local IMPORTED
+  IMPORTED="$(cat)"
+
+  if [[ "$REPLACE" == "true" ]]; then
+    printf '%s\n' "$IMPORTED" | fn-http-auth-set-htpasswd "$APP"
+    return
+  fi
+
+  # upsert: drop any existing line whose username matches an imported one, then
+  # append the imported entries so they win on collision (like fn-http-auth-add-user).
+  # awk with -F: and an exact $1 comparison avoids sed metacharacter issues in
+  # usernames and its NF guard drops the blank line an empty $KEPT would emit.
+  local KEPT USERNAMES USERNAME
+  KEPT="$(fn-http-auth-current-htpasswd "$APP")"
+  USERNAMES="$(printf '%s\n' "$IMPORTED" | cut -d':' -f1)"
+  while IFS= read -r USERNAME || [[ -n "$USERNAME" ]]; do
+    [[ -z "$USERNAME" ]] && continue
+    KEPT="$(printf '%s\n' "$KEPT" | awk -F: -v u="$USERNAME" 'NF && $1 != u')"
+  done <<< "$USERNAMES"
+
+  {
+    [[ -n "$KEPT" ]] && printf '%s\n' "$KEPT"
+    printf '%s\n' "$IMPORTED"
+  } | fn-http-auth-set-htpasswd "$APP"
+}
+
 fn-http-auth-template-config() {
   declare APP="$1"
   local APP_ROOT="$DOKKU_ROOT/$APP"
