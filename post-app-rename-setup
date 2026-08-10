@@ -15,9 +15,7 @@ trigger-http-auth-post-app-rename-setup() {
     fn-http-auth-ensure-htpasswd "$OLD_APP"
     sudo "$(fn-http-auth-htpasswd-helper)" rename "$OLD_APP" "$NEW_APP"
   fi
-  if [[ "$(fn-http-auth-enabled "$NEW_APP")" == "true" ]]; then
-    fn-http-auth-template-config "$NEW_APP"
-  fi
+  fn-http-auth-sync-config "$NEW_APP"
 }
 
 trigger-http-auth-post-app-rename-setup "$@"

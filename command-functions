@@ -123,7 +123,6 @@ cmd-http-auth-enable() {
   fi
 
   declare APP="$1" AUTH_USERNAME="$2" AUTH_PASSWORD="$3"
-  local APP_ROOT="$DOKKU_ROOT/$APP"
 
   verify_app_name "$APP"
   if [[ "$(fn-http-auth-enabled "$APP")" == "true" ]]; then
@@ -139,7 +138,7 @@ cmd-http-auth-enable() {
   fi
 
   fn-plugin-property-write "http-auth" "$APP" "enabled" "true"
-  fn-http-auth-template-config "$APP"
+  fn-http-auth-sync-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
   dokku_log_verbose "Done"
 }
@@ -153,7 +152,6 @@ cmd-http-auth-disable() {
     shift 1
   fi
   declare APP="$1"
-  local APP_ROOT="$DOKKU_ROOT/$APP"
 
   verify_app_name "$APP"
   if [[ "$(fn-http-auth-enabled "$APP")" == "false" ]]; then
@@ -163,7 +161,7 @@ cmd-http-auth-disable() {
 
   dokku_log_info1 "Disabling HTTP auth for $APP..."
   fn-plugin-property-write "http-auth" "$APP" "enabled" "false"
-  rm -f "$APP_ROOT/nginx.conf.d/http-auth.conf"
+  fn-http-auth-sync-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
   dokku_log_verbose "Done"
 }
@@ -175,10 +173,6 @@ cmd-http-auth-add-user() {
   declare APP="$1" AUTH_USERNAME="$2" AUTH_PASSWORD="$3"
 
   verify_app_name "$APP"
-  if [[ "$(fn-http-auth-enabled "$APP")" == "false" ]]; then
-    dokku_log_fail "Authentication is disabled"
-    return 1
-  fi
 
   if [[ -z "$AUTH_USERNAME" ]]; then
     dokku_log_fail "Missing username"
@@ -192,7 +186,11 @@ cmd-http-auth-add-user() {
 
   dokku_log_info1 "Adding $AUTH_USERNAME to basic auth list"
   fn-http-auth-add-user "$APP" "$AUTH_USERNAME" "$AUTH_PASSWORD"
-  fn-http-auth-template-config "$APP"
+  # adding auth config turns auth on, matching add-allowed-ip/add-domain: disable
+  # leaves the htpasswd in place, so an app can have users while auth is off and
+  # managing them should not require enabling auth as a separate step first
+  fn-plugin-property-write "http-auth" "$APP" "enabled" "true"
+  fn-http-auth-sync-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
@@ -219,7 +217,7 @@ cmd-http-auth-add-allowed-ip() {
   if fn-http-auth-has-auth-domains "$APP"; then
     fn-http-auth-warn-ip-domain-overlap
   fi
-  fn-http-auth-template-config "$APP"
+  fn-http-auth-sync-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
@@ -230,10 +228,6 @@ cmd-http-auth-remove-user() {
   declare APP="$1" AUTH_USERNAME="$2"
 
   verify_app_name "$APP"
-  if [[ "$(fn-http-auth-enabled "$APP")" == "false" ]]; then
-    dokku_log_fail "Authentication is disabled"
-    return 1
-  fi
 
   if [[ -z "$AUTH_USERNAME" ]]; then
     dokku_log_fail "Missing username"
@@ -242,7 +236,9 @@ cmd-http-auth-remove-user() {
 
   dokku_log_info1 "Removing $AUTH_USERNAME from basic auth list"
   fn-http-auth-remove-user "$APP" "$AUTH_USERNAME"
-  fn-http-auth-template-config "$APP"
+  # unlike add-user, removing config never writes `enabled`: pruning a user must
+  # not turn auth on for an app the operator deliberately disabled
+  fn-http-auth-sync-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
@@ -315,10 +311,9 @@ cmd-http-auth-import-users() {
 
   dokku_log_info1 "Importing ${#entries[@]} http-auth user(s) for $APP"
   printf '%s\n' "${entries[@]}" | fn-http-auth-import-users "$APP" "$REPLACE"
-  # adding auth config turns auth on, matching add-allowed-ip/add-domain, and
-  # guarantees the template render below never resurrects auth on a disabled app
+  # adding auth config turns auth on, matching add-user/add-allowed-ip/add-domain
   fn-plugin-property-write "http-auth" "$APP" "enabled" "true"
-  fn-http-auth-template-config "$APP"
+  fn-http-auth-sync-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
@@ -337,7 +332,7 @@ cmd-http-auth-remove-allowed-ip() {
 
   dokku_log_info1 "Removing $ADDRESS from allowed ip list"
   fn-plugin-property-list-remove "http-auth" "$APP" "allowed-ips" "$ADDRESS"
-  fn-http-auth-template-config "$APP"
+  fn-http-auth-sync-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
@@ -374,7 +369,7 @@ cmd-http-auth-add-domain() {
   if fn-http-auth-has-allowed-ips "$APP"; then
     fn-http-auth-warn-ip-domain-overlap
   fi
-  fn-http-auth-template-config "$APP"
+  fn-http-auth-sync-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
@@ -394,7 +389,7 @@ cmd-http-auth-remove-domain() {
   DOMAIN="$(fn-http-auth-normalize-domain "$DOMAIN")"
   dokku_log_info1 "Removing $DOMAIN from auth domain list"
   fn-plugin-property-list-remove "http-auth" "$APP" "auth-domains" "$DOMAIN"
-  fn-http-auth-template-config "$APP"
+  fn-http-auth-sync-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
@@ -434,6 +429,6 @@ cmd-http-auth-set-domains() {
     fi
   fi
 
-  fn-http-auth-template-config "$APP"
+  fn-http-auth-sync-config "$APP"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }

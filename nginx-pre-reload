@@ -8,13 +8,8 @@ trigger-http-auth-nginx-pre-reload() {
   declare desc="regenerates the http-auth nginx include whenever nginx config is rebuilt"
   declare trigger="nginx-pre-reload"
   declare APP="$1"
-  local APP_ROOT="$DOKKU_ROOT/$APP"
 
-  if [[ "$(fn-http-auth-enabled "$APP")" == "true" ]]; then
-    fn-http-auth-template-config "$APP"
-  else
-    rm -f "$APP_ROOT/nginx.conf.d/http-auth.conf"
-  fi
+  fn-http-auth-sync-config "$APP"
 }
 
 trigger-http-auth-nginx-pre-reload "$@"

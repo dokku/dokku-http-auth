@@ -102,6 +102,18 @@ teardown() {
   [[ "$output" == *"allow 10.0.0.5;"* ]]
 }
 
+@test "(http-auth:remove-allowed-ip) on a disabled app does not resurrect the config" {
+  dokku http-auth:add-user "$APP" u1 pass1
+  dokku http-auth:add-allowed-ip "$APP" 10.0.0.7
+  dokku http-auth:disable "$APP"
+  run dokku http-auth:remove-allowed-ip "$APP" 10.0.0.7
+  [ "$status" -eq 0 ]
+  # the app still has users, so re-rendering the include would put auth back in
+  # front of nginx while the enabled property says otherwise
+  assert_disabled "$APP"
+  $SUDO test ! -f "$(http_auth_conf_path "$APP")"
+}
+
 @test "(http-auth:add-allowed-ip) warns when the app restricts auth to domains" {
   dokku domains:add "$APP" a.example.com >/dev/null
   dokku http-auth:add-domain "$APP" a.example.com
