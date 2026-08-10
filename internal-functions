@@ -147,6 +147,18 @@ fn-http-auth-template-config() {
   sigil -f "$DOKKU_TEMPLATE" HTPASSWD_PATH="$HTPASSWD_PATH" ALLOWED_IPS="$ALLOWED_IPS" AUTH_DOMAINS="$AUTH_DOMAINS" HAS_ALLOWED_USERS="$HAS_ALLOWED_USERS" | cat -s >"$APP_ROOT/nginx.conf.d/http-auth.conf"
 }
 
+fn-http-auth-sync-config() {
+  declare desc="render the app's nginx include when auth is enabled, remove it when disabled"
+  declare APP="$1"
+  local APP_ROOT="$DOKKU_ROOT/$APP"
+
+  if [[ "$(fn-http-auth-enabled "$APP")" == "true" ]]; then
+    fn-http-auth-template-config "$APP"
+  else
+    rm -f "$APP_ROOT/nginx.conf.d/http-auth.conf"
+  fi
+}
+
 fn-http-auth-app-vhosts() {
   declare desc="list the nginx vhosts currently attached to an app"
   declare APP="$1"

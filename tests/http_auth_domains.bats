@@ -155,6 +155,24 @@ teardown() {
   [[ "$output" != *'dokku_auth_realm'* ]]
 }
 
+@test "(http-auth:remove-domain) on a disabled app does not resurrect the config" {
+  dokku http-auth:add-domain "$APP" a.example.com
+  dokku http-auth:disable "$APP"
+  run dokku http-auth:remove-domain "$APP" a.example.com
+  [ "$status" -eq 0 ]
+  assert_disabled "$APP"
+  $SUDO test ! -f "$(http_auth_conf_path "$APP")"
+}
+
+@test "(http-auth:set-domains) with no domains on a disabled app does not resurrect the config" {
+  dokku http-auth:add-domain "$APP" a.example.com
+  dokku http-auth:disable "$APP"
+  run dokku http-auth:set-domains "$APP"
+  [ "$status" -eq 0 ]
+  assert_disabled "$APP"
+  $SUDO test ! -f "$(http_auth_conf_path "$APP")"
+}
+
 @test "(http-auth:remove-domain) fails when the domain is missing" {
   run dokku http-auth:remove-domain "$APP"
   [ "$status" -ne 0 ]

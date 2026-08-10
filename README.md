@@ -69,7 +69,7 @@ dokku http-auth:enable node-js-app username password
 
 ### Adding users
 
-Individual user/password combinations can be added at any point in time via the `http-auth:add-user` command. Specifying the same user twice will override the first instance of the user, even if the password is the same.
+Individual user/password combinations can be added at any point in time via the `http-auth:add-user` command. Specifying the same user twice will override the first instance of the user, even if the password is the same. Adding a user enables HTTP auth for the app if it was not already enabled.
 
 ```shell
 dokku http-auth:add-user node-js-app username password
@@ -85,7 +85,7 @@ dokku http-auth:add-user node-js-app username password
 
 ### Removing users
 
-A user can be removed via the `http-auth:remove-user` command. This command will always reload nginx, even if the user does not exist.
+A user can be removed via the `http-auth:remove-user` command. This command will always reload nginx, even if the user does not exist. It works whether or not auth is currently enabled and never turns auth back on, since removing a user is not a request to start authenticating.
 
 ```shell
 dokku http-auth:remove-user node-js-app username
@@ -281,6 +281,8 @@ All values are JSON strings, and list values (`allowed-ips`, `domains`, `users`)
 ### How state is persisted
 
 Whether HTTP auth is enabled for an app is tracked as an app property, and the generated nginx include (`nginx.conf.d/http-auth.conf`) is regenerated from that state on every deploy. This keeps the include in sync with the configured users and allowed IPs, and restores it automatically if it was ever left empty or out of date.
+
+The include is reconciled against that property on every change, not just on deploy: commands that add configuration (`add-user`, `add-allowed-ip`, `add-domain`, `set-domains`, `import-users`) enable auth and render the include, while commands that remove configuration leave the enabled state untouched. Removing configuration from a disabled app therefore leaves it disabled rather than putting auth back in front of nginx.
 
 ### Renaming, cloning, and destroying apps
 
