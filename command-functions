@@ -79,23 +79,17 @@ cmd-http-auth-report-single() {
     done
   else
     local match=false
-    local value_exists=false
     for flag in "${flag_map[@]}"; do
       valid_flags="${valid_flags} $(echo "$flag" | cut -d':' -f1)"
       if [[ "$flag" == "${INFO_FLAG}:"* ]]; then
         value=${flag#*: }
-        size="${#value}"
-        if [[ "$size" -ne 0 ]]; then
-          echo "$value" && match=true && value_exists=true
-        elif [[ "$INFO_FLAG" == "--http-auth-allowed-ips" ]] || [[ "$INFO_FLAG" == "--http-auth-domains" ]]; then
-          match=true && value_exists=true
-        else
-          match=true
-        fi
+        # an empty value is a real answer for every http-auth flag - no allowed
+        # ips, no domains, no users - so it reports as empty rather than failing
+        [[ -n "$value" ]] && echo "$value"
+        match=true
       fi
     done
     [[ "$match" == "true" ]] || dokku_log_fail "Invalid flag passed, valid flags:${valid_flags}"
-    [[ "$value_exists" == "true" ]] || dokku_log_fail "not deployed"
   fi
 }
 

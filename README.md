@@ -283,6 +283,9 @@ You can pass flags which will output only the value of the specific information 
 dokku http-auth:report node-js-app --http-auth-enabled
 ```
 
+A flag whose value is empty - an app with no allowed IPs, no domains or no users - prints
+nothing and exits `0`, so callers can read any flag without special-casing the exit status.
+
 The report can also be emitted as JSON for programmatic use by passing `--format json`:
 
 ```shell

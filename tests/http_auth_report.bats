@@ -48,10 +48,10 @@ teardown() {
   [ "$output" = "10.0.0.1" ]
 }
 
-@test "(http-auth:report) --http-auth-users fails when there are no users" {
+@test "(http-auth:report) --http-auth-users is empty but successful with no users" {
   run dokku http-auth:report "$APP" --http-auth-users
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"not deployed"* ]]
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
 }
 
 @test "(http-auth:report) --http-auth-users lists users" {
