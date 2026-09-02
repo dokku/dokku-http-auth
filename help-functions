@@ -38,6 +38,7 @@ fn-help-content() {
     http-auth:remove-domain <app> <domain>, stop restricting basic auth to the given domain
     http-auth:remove-user <app> <user>, Remove basic auth user from app
     http-auth:report [<app>] [<flag>] [--format stdout|json], Displays an http-auth report for one or more apps
+    http-auth:set-allowed-ips <app> [<address>...], replace the set of ips allowed to bypass basic auth
     http-auth:set-domains <app> [<domain>...], replace the set of domains basic auth is restricted to
     http-auth:show-config <app>, Display app http-auth config
 help_content

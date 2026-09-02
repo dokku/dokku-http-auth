@@ -69,6 +69,16 @@ dokku_plugin_env() {
     "$@"
 }
 
+# Run one of the plugin's internal functions in a subshell with the plugin
+# environment, so pure helpers can be unit-tested without creating an app.
+http_auth_internal() {
+  # the inner script must stay single-quoted: both expansions belong to the
+  # subshell bash, not to this one
+  # shellcheck disable=SC2016
+  dokku_plugin_env bash -c \
+    'source "$PLUGIN_AVAILABLE_PATH/http-auth/internal-functions"; "$@"' _ "$@"
+}
+
 # Re-render the app's nginx include the way an nginx rebuild would.
 fire_nginx_pre_reload() {
   dokku_plugin_env /var/lib/dokku/plugins/available/http-auth/nginx-pre-reload "$1" "" "" >/dev/null

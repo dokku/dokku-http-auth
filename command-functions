@@ -79,23 +79,17 @@ cmd-http-auth-report-single() {
     done
   else
     local match=false
-    local value_exists=false
     for flag in "${flag_map[@]}"; do
       valid_flags="${valid_flags} $(echo "$flag" | cut -d':' -f1)"
       if [[ "$flag" == "${INFO_FLAG}:"* ]]; then
         value=${flag#*: }
-        size="${#value}"
-        if [[ "$size" -ne 0 ]]; then
-          echo "$value" && match=true && value_exists=true
-        elif [[ "$INFO_FLAG" == "--http-auth-allowed-ips" ]] || [[ "$INFO_FLAG" == "--http-auth-domains" ]]; then
-          match=true && value_exists=true
-        else
-          match=true
-        fi
+        # an empty value is a real answer for every http-auth flag - no allowed
+        # ips, no domains, no users - so it reports as empty rather than failing
+        [[ -n "$value" ]] && echo "$value"
+        match=true
       fi
     done
     [[ "$match" == "true" ]] || dokku_log_fail "Invalid flag passed, valid flags:${valid_flags}"
-    [[ "$value_exists" == "true" ]] || dokku_log_fail "not deployed"
   fi
 }
 
@@ -206,6 +200,10 @@ cmd-http-auth-add-allowed-ip() {
   fi
 
   verify_app_name "$APP"
+
+  if ! fn-http-auth-valid-address "$ADDRESS"; then
+    dokku_log_fail "Invalid ip address: $ADDRESS"
+  fi
 
   dokku_log_info1 "Adding $ADDRESS to allowed ip list"
   if fn-plugin-property-list-get-by-value "http-auth" "$APP" "allowed-ips" "$ADDRESS" 2>/dev/null; then
@@ -393,6 +391,40 @@ cmd-http-auth-remove-domain() {
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
 }
 
+cmd-http-auth-set-allowed-ips() {
+  declare desc="replace the set of ips allowed to bypass basic auth for an app"
+  declare cmd="http-auth:set-allowed-ips"
+  [[ "$1" == "$cmd" ]] && shift 1
+  declare APP="$1"
+
+  verify_app_name "$APP"
+  shift 1
+
+  local address
+  local addresses=()
+  # validate every address before mutating so a bad address never leaves a
+  # half-set allow-list; no arguments is a legal call meaning "clear the list"
+  for address in "$@"; do
+    if ! fn-http-auth-valid-address "$address"; then
+      dokku_log_fail "Invalid ip address: $address"
+    fi
+    addresses+=("$address")
+  done
+
+  dokku_log_info1 "Setting allowed ip list for $APP"
+  fn-http-auth-replace-property-list "$APP" "allowed-ips" "${addresses[@]}"
+
+  if [[ "${#addresses[@]}" -gt 0 ]]; then
+    fn-plugin-property-write "http-auth" "$APP" "enabled" "true"
+    if fn-http-auth-has-auth-domains "$APP"; then
+      fn-http-auth-warn-ip-domain-overlap
+    fi
+  fi
+
+  fn-http-auth-sync-config "$APP"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
+}
+
 cmd-http-auth-set-domains() {
   declare desc="replace the set of domains basic auth is restricted to for an app"
   declare cmd="http-auth:set-domains"
@@ -402,7 +434,7 @@ cmd-http-auth-set-domains() {
   verify_app_name "$APP"
   shift 1
 
-  local domain existing
+  local domain
   local domains=()
   # validate every domain before mutating so a bad domain never leaves a half-set list
   for domain in "$@"; do
@@ -414,13 +446,8 @@ cmd-http-auth-set-domains() {
   done
 
   dokku_log_info1 "Setting auth domain list for $APP"
-  while IFS="" read -r existing || [[ -n "$existing" ]]; do
-    [[ -n "$existing" ]] && fn-plugin-property-list-remove "http-auth" "$APP" "auth-domains" "$existing"
-  done < <(fn-plugin-property-list-get "http-auth" "$APP" "auth-domains")
-
-  for domain in "${domains[@]}"; do
-    fn-plugin-property-list-add "http-auth" "$APP" "auth-domains" "$domain"
-  done
+  # normalization happens above, so casing variants of one domain collapse here
+  fn-http-auth-replace-property-list "$APP" "auth-domains" "${domains[@]}"
 
   if [[ "${#domains[@]}" -gt 0 ]]; then
     fn-plugin-property-write "http-auth" "$APP" "enabled" "true"

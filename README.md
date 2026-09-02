@@ -17,19 +17,20 @@ $ dokku plugin:install https://github.com/dokku/dokku-http-auth.git
 
 ```
 $ dokku http-auth:help
-    http-auth:add-user <app> <user> <password>  Add basic auth user to app
-    http-auth:add-allowed-ip <app> <address>    Add allowed IP to basic auth bypass for an app
-    http-auth:add-domain <app> <domain>         Restrict basic auth to the given domain (empty list = all domains)
-    http-auth:disable <app>                     Disable HTTP auth for app
-    http-auth:enable <app> <user> <password>    Enable HTTP auth for app
-    http-auth:export-users <app>                Export basic auth users as htpasswd entries to stdout
-    http-auth:import-users <app> [--replace]    Import basic auth users from stdin (htpasswd entries)
-    http-auth:remove-allowed-ip <app> <address> Remove allowed IP from basic auth bypass for an app
-    http-auth:remove-domain <app> <domain>      Stop restricting basic auth to the given domain
-    http-auth:remove-user <app> <user>          Remove basic auth user from app
-    http-auth:report [<app>] [<flag>]           Displays an http-auth report for one or more apps
-    http-auth:set-domains <app> [<domain>...]   Replace the set of domains basic auth is restricted to
-    http-auth:show-config <app>                 Display app http-auth config
+    http-auth:add-allowed-ip <app> <address>        Add allowed IP to basic auth bypass for an app
+    http-auth:add-domain <app> <domain>             Restrict basic auth to the given domain (empty list = all domains)
+    http-auth:add-user <app> <user> <password>      Add basic auth user to app
+    http-auth:disable <app>                         Disable HTTP auth for app
+    http-auth:enable <app> <user> <password>        Enable HTTP auth for app
+    http-auth:export-users <app>                    Export basic auth users as htpasswd entries to stdout
+    http-auth:import-users <app> [--replace]        Import basic auth users from stdin (htpasswd entries)
+    http-auth:remove-allowed-ip <app> <address>     Remove allowed IP from basic auth bypass for an app
+    http-auth:remove-domain <app> <domain>          Stop restricting basic auth to the given domain
+    http-auth:remove-user <app> <user>              Remove basic auth user from app
+    http-auth:report [<app>] [<flag>]               Displays an http-auth report for one or more apps
+    http-auth:set-allowed-ips <app> [<address>...]  Replace the set of IPs allowed to bypass basic auth for an app
+    http-auth:set-domains <app> [<domain>...]       Replace the set of domains basic auth is restricted to
+    http-auth:show-config <app>                     Display app http-auth config
 ```
 
 ## Usage
@@ -170,6 +171,22 @@ dokku http-auth:remove-allowed-ip node-js-app 127.0.0.1
        Reloading nginx
 ```
 
+Replace the entire list in one call with `http-auth:set-allowed-ips`. Passing no addresses
+clears the list, dropping the allow/deny block from the nginx config:
+
+```shell
+# allow exactly these two entries
+dokku http-auth:set-allowed-ips node-js-app 127.0.0.1 10.0.0.0/8
+
+# clear the list -> the allow/deny block is dropped
+dokku http-auth:set-allowed-ips node-js-app
+```
+
+An entry may be an IPv4 or IPv6 address, a CIDR block, `unix:` for UNIX-domain sockets, or
+`all`. Both `http-auth:add-allowed-ip` and `http-auth:set-allowed-ips` reject a malformed
+entry before writing anything, so a typo in one address of a `set-allowed-ips` call leaves
+the existing list untouched rather than half-rewritten.
+
 ### Restricting auth to specific domains
 
 By default HTTP auth applies to every domain attached to an app. When an app serves
@@ -265,6 +282,9 @@ You can pass flags which will output only the value of the specific information 
 ```shell
 dokku http-auth:report node-js-app --http-auth-enabled
 ```
+
+A flag whose value is empty - an app with no allowed IPs, no domains or no users - prints
+nothing and exits `0`, so callers can read any flag without special-casing the exit status.
 
 The report can also be emitted as JSON for programmatic use by passing `--format json`:
 
