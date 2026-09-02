@@ -185,6 +185,110 @@ fn-http-auth-normalize-domain() {
   echo "$DOMAIN" | tr '[:upper:]' '[:lower:]'
 }
 
+fn-http-auth-valid-ipv4() {
+  declare desc="check whether a string is a dotted-quad ipv4 address"
+  declare ADDRESS="$1"
+  local octet
+  local -a octets=()
+
+  [[ "$ADDRESS" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || return 1
+  IFS=. read -r -a octets <<< "$ADDRESS"
+  for octet in "${octets[@]}"; do
+    ((10#$octet <= 255)) || return 1
+  done
+
+  return 0
+}
+
+fn-http-auth-valid-prefix() {
+  declare desc="check a cidr prefix length is numeric and within a maximum"
+  declare PREFIX="$1" MAX="$2"
+
+  [[ "$PREFIX" =~ ^[0-9]{1,3}$ ]] || return 1
+  ((10#$PREFIX <= MAX)) || return 1
+
+  return 0
+}
+
+fn-http-auth-valid-address() {
+  declare desc="check whether an address is one nginx's allow directive accepts"
+  declare ADDRESS="$1"
+  local host prefix
+
+  [[ -z "$ADDRESS" ]] && return 1
+  # nginx takes these two verbatim rather than as addresses
+  [[ "$ADDRESS" == "all" ]] && return 0
+  [[ "$ADDRESS" == "unix:"* ]] && return 0
+
+  # a slash obliges a prefix length, so `10.0.0.0/` is not an address
+  host="${ADDRESS%%/*}"
+  prefix="${ADDRESS#*/}"
+  [[ "$ADDRESS" == */* ]] || prefix=""
+
+  # ipv6 is checked by shape rather than parsed: the compressed forms are
+  # fiddly enough that a strict parser risks rejecting an address nginx
+  # accepts, while a typo still fails the shape check
+  if [[ "$host" == *:* ]]; then
+    [[ "$host" =~ ^[0-9A-Fa-f:]+$ ]] || return 1
+    # a second :: run leaves the elision ambiguous
+    [[ "$host" == *::*::* ]] && return 1
+    [[ "$host" == :* ]] && [[ "$host" != ::* ]] && return 1
+    [[ "$host" == *: ]] && [[ "$host" != *:: ]] && return 1
+    if [[ "$ADDRESS" == */* ]]; then
+      fn-http-auth-valid-prefix "$prefix" 128 || return 1
+    fi
+
+    return 0
+  fi
+
+  fn-http-auth-valid-ipv4 "$host" || return 1
+  if [[ "$ADDRESS" == */* ]]; then
+    fn-http-auth-valid-prefix "$prefix" 32 || return 1
+  fi
+
+  return 0
+}
+
+fn-http-auth-list-contains() {
+  declare desc="check whether the first argument appears in the remaining ones"
+  declare NEEDLE="$1"
+  shift
+  local item
+
+  for item in "$@"; do
+    [[ "$item" == "$NEEDLE" ]] && return 0
+  done
+
+  return 1
+}
+
+fn-http-auth-replace-property-list() {
+  declare desc="replace a property list with exactly the supplied values, dropping duplicates"
+  declare APP="$1" KEY="$2"
+  shift 2
+  local existing value
+  local -a stored=() values=()
+
+  # collect distinct stored values first: fn-plugin-property-list-remove is
+  # driven once per value, so a list that already holds duplicates would
+  # otherwise leave a stray entry behind
+  while IFS="" read -r existing || [[ -n "$existing" ]]; do
+    [[ -z "$existing" ]] && continue
+    fn-http-auth-list-contains "$existing" "${stored[@]}" && continue
+    stored+=("$existing")
+  done < <(fn-plugin-property-list-get "http-auth" "$APP" "$KEY")
+
+  for existing in "${stored[@]}"; do
+    fn-plugin-property-list-remove "http-auth" "$APP" "$KEY" "$existing"
+  done
+
+  for value in "$@"; do
+    fn-http-auth-list-contains "$value" "${values[@]}" && continue
+    values+=("$value")
+    fn-plugin-property-list-add "http-auth" "$APP" "$KEY" "$value"
+  done
+}
+
 fn-http-auth-has-allowed-ips() {
   declare desc="check whether an app has any allowed ips configured"
   declare APP="$1"

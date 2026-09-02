@@ -126,6 +126,14 @@ teardown() {
   [ -z "$output" ]
 }
 
+@test "(http-auth:set-domains) dedupes repeated domains" {
+  run dokku http-auth:set-domains "$APP" a.example.com A.Example.COM
+  [ "$status" -eq 0 ]
+  [ "$(http_auth_conf "$APP" | grep -c 'if (\$host = "a.example.com") {')" -eq 1 ]
+  run dokku http-auth:report "$APP" --http-auth-domains
+  [ "$output" = "a.example.com" ]
+}
+
 @test "(http-auth:set-domains) fails when any domain is not attached" {
   run dokku http-auth:set-domains "$APP" a.example.com nope.example.com
   [ "$status" -ne 0 ]
