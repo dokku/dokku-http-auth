@@ -10,7 +10,7 @@ trigger-http-auth-post-delete() {
   declare APP="$1"
 
   fn-plugin-property-destroy "http-auth" "$APP"
-  if fn-http-auth-has-htpasswd "$APP"; then
+  if [[ -d "$(fn-http-auth-htpasswd-dir "$APP")" ]]; then
     sudo "$(fn-http-auth-htpasswd-helper)" remove "$APP"
   fi
 }

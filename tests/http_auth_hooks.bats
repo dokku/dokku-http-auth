@@ -9,10 +9,20 @@ setup() {
 }
 
 teardown() {
+  restore_sudoers
   cleanup_app "$APP"
   if [ -n "$APP2" ]; then
     cleanup_app "$APP2"
   fi
+}
+
+@test "(http-auth) post-delete destroys an app with only a legacy htpasswd without sudo" {
+  echo 'u1:$6$seededhash' | $SUDO tee "$(legacy_htpasswd_path "$APP")" >/dev/null
+  $SUDO test ! -d "$(htpasswd_dir "$APP")"
+  hide_sudoers
+  run dokku --force apps:destroy "$APP"
+  [ "$status" -eq 0 ]
+  $SUDO test ! -f "$(legacy_htpasswd_path "$APP")"
 }
 
 @test "(http-auth) post-delete destroys the plugin properties and htpasswd on apps:destroy" {
@@ -89,4 +99,16 @@ teardown() {
   run http_auth_conf "$APP2"
   [[ "$output" == *"auth_basic"* ]]
   [[ "$output" == *"auth_basic_user_file $(htpasswd_path "$APP2");"* ]]
+}
+
+hide_sudoers() {
+  declare desc="move the http-auth sudoers file aside so any helper call fails"
+  $SUDO mv /etc/sudoers.d/dokku-http-auth /etc/dokku-http-auth.sudoers.bak
+}
+
+restore_sudoers() {
+  declare desc="put back a sudoers file moved aside by hide_sudoers"
+  if $SUDO test -f /etc/dokku-http-auth.sudoers.bak; then
+    $SUDO mv /etc/dokku-http-auth.sudoers.bak /etc/sudoers.d/dokku-http-auth
+  fi
 }
